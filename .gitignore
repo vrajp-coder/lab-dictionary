@@ -1,0 +1,22 @@
+# ---- Python / Django ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+env/
+venv/
+.build/
+# ---- VSCode & PyCharm junk ----
+.vscode/
+.idea/
+# ---- SQLite ----
+db.sqlite3
+# ---- Local logs / temp ----
+*.log
+*.tmp
+# ---- Mac & Windows ----
+.DS_Store
+Thumbs.db
+
+# ---- project‑specific exclusions ----
+active.py
+test.py

@@ -1,0 +1,756 @@
+<!-- File: templates/dictionaries/tab1.html -->
+<!-- This is the content for your "Medications" tab only. -->
+
+<div class="page-container">
+    <div class="flex-row">
+      <!-- LEFT PANEL -->
+      <div class="left-panel">
+        <h4>Upload &amp; Select Rows</h4>
+        <div style="display:flex; gap:12px; margin-bottom:15px;">
+          <button class="btn btn-success" id="uploadBtn">Upload CSV</button>
+          <input type="file" id="fileInput" accept=".csv" style="display:none;">
+        </div>
+
+        <div class="search-container">
+          <input type="text" id="search-input" class="form-control"
+            placeholder="Search pharma_class, generic_name, or drug_name_dose...">
+        </div>
+
+        <!-- We wrap the original dropdown panel + new pharma panel in a flex container -->
+        <div class="dropdown-container">
+          <!-- Existing dropdown panel -->
+          <div class="dropdown-panel" id="dropdown-panel">
+            <span class="clear-selections">Clear All Selections</span>
+          </div>
+
+          <!-- New panel showing unique pharma_class from the selected items -->
+          <div class="pharma-panel" id="pharma-panel">
+            <div class="pharma-panel-title">pharma_class</div>
+            <div id="pharma-class-list"></div>
+          </div>
+        </div>
+
+        <div class="selected-tags" id="tag-container"></div>
+
+        <!-- Update Table Button -->
+        <div style="margin-bottom:20px;">
+          <button class="btn btn-success" id="updateTableBtn" style="display:none;">
+            Update Table
+          </button>
+        </div>
+
+        <div class="table-container" id="table-container">
+          <table class="csv-table">
+            <thead>
+              <tr>
+                <th class="select-col"></th>
+                <th>pharma_class</th>
+                <th class="select-col"></th>
+                <th>generic_name</th>
+                <th class="select-col"></th>
+                <th>drug_name_dose</th>
+                <th>drug_concept_id</th>
+                <th>frequency</th>
+                <th>percentage</th>
+              </tr>
+            </thead>
+            <tbody id="csv-table-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Clear Table Button -->
+        <div style="margin-bottom:20px;">
+          <button class="btn btn-danger" id="clearTableBtn" style="display:none;">
+            Clear Table
+          </button>
+        </div>
+
+        <h4>Capture Columns</h4>
+        <div class="capture-row">
+          <div style="display:flex; flex-direction:column;">
+            <label><strong>Column Name:</strong></label>
+            <input type="text" id="col-name-input" placeholder="Column Name">
+          </div>
+          <button class="btn btn-success" id="capture-column-btn">
+            Capture Selections
+          </button>
+          <button class="btn btn-danger" id="next-column-btn">
+            Next Column
+          </button>
+        </div>
+
+        <!-- Removed the Step 2 label and the file input; we’ll generate the name automatically -->
+        <div style="text-align:center; margin-top:15px;">
+          <button class="btn btn-success" id="generateNewCsvBtn">
+            Generate New CSV File
+          </button>
+        </div>
+
+      </div><!-- end left-panel -->
+
+      <!-- RIGHT PANEL => CSV Preview -->
+      <div class="right-panel">
+        <h4 class="preview-title">CSV Preview</h4>
+        <div class="preview-box" id="csv-preview">
+          <em>No columns captured yet.</em>
+        </div>
+      </div><!-- end right-panel -->
+    </div>
+  </div>
+  
+  <div style="text-align:center;">
+    <button class="btn btn-danger new-session-btn" id="newSessionBtn">
+      New Session
+    </button>
+  </div>
+  
+  <script>
+    //-----------------------------------------------------------
+    // GLOBALS / STATE
+    //-----------------------------------------------------------
+    let allData = [];         // entire dataset from server
+    let filteredData = [];    // what is currently shown in the table
+    let searchVal = "";       // user typed substring (with spaces)
+
+    // For the dropdown panel:
+    let selectedPharma = new Set();
+    let selectedGeneric = new Set();
+    let selectedDrug   = new Set();
+    let dropdownSelectionOrder = []; // order of selection for rendering tags
+
+    // For table checkboxes (row-level).
+    let selectedRowIndexes = new Set();
+
+    // For CSV Preview, each element => {
+    //   colName,
+    //   doses,           // array of drug_name_dose
+    //   medicationIds,   // array of medication_id
+    //   selectedPharma,  // array of strings
+    //   selectedGeneric, // array of strings
+    //   selectedDrug     // array of strings
+    // }
+    let previewColumns = [];
+    let currentlyEditingColIndex = -1;
+
+    //-----------------------------------------------------------
+    // DOM references
+    //-----------------------------------------------------------
+    const fileInput         = document.getElementById("fileInput");
+    const uploadBtn         = document.getElementById("uploadBtn");
+    const searchInput       = document.getElementById("search-input");
+    const dropdownPanel     = document.getElementById("dropdown-panel");
+    const pharmaPanel       = document.getElementById("pharma-panel");
+    const pharmaList        = document.getElementById("pharma-class-list");
+    const tagContainer      = document.getElementById("tag-container");
+    const tableContainer    = document.getElementById("table-container");
+    const tableBody         = document.getElementById("csv-table-body");
+    const clearSelLink      = dropdownPanel.querySelector(".clear-selections");
+    const colNameInput      = document.getElementById("col-name-input");
+    const captureColumnBtn  = document.getElementById("capture-column-btn");
+    const nextColumnBtn     = document.getElementById("next-column-btn");
+    const previewBox        = document.getElementById("csv-preview");
+    const generateNewCsvBtn = document.getElementById("generateNewCsvBtn");
+    const newSessionBtn     = document.getElementById("newSessionBtn");
+
+    const updateTableBtn    = document.getElementById("updateTableBtn");
+    const clearTableBtn     = document.getElementById("clearTableBtn");
+
+    //-----------------------------------------------------------
+    // INITIAL PAGE LOAD
+    //-----------------------------------------------------------
+    window.addEventListener("DOMContentLoaded", () => {
+      // Hide everything until a CSV is uploaded
+      showDataUI(false);
+    });
+
+    // showDataUI => toggles the dropdown panel, the table, the update/clear table buttons, etc.
+    function showDataUI(show){
+      // .dropdown-panel => only show if `show===true`
+      dropdownPanel.style.display  = show ? "block" : "none";
+      // The new .pharma-panel => show only if there are dropdown selections
+      // but let's do the same "show" logic for now. We'll also hide it if no actual items.
+      // We'll refine in renderPharmaPanel().
+
+      pharmaPanel.style.display    = show ? "block" : "none";
+      tagContainer.style.display   = show ? "flex"  : "none";
+      tableContainer.style.display = show ? "block" : "none";
+      updateTableBtn.style.display = show ? "inline-block" : "none";
+      clearTableBtn.style.display  = show ? "inline-block" : "none";
+    }
+
+    //-----------------------------------------------------------
+    // UPLOAD CSV
+    //-----------------------------------------------------------
+    uploadBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if(!file) return;
+      let formData = new FormData();
+      formData.append("csvFile", file);
+
+      fetch("/upload_medication/", {
+        method: "POST",
+        body: formData
+      })
+      .then(r => r.json())
+      .then(resp => {
+        if(resp.error){
+          alert("Upload error: " + resp.error);
+          return;
+        }
+        // success => fetch the data
+        return fetch("/get_medication_data/");
+      })
+      .then(r => r.json())
+      .then(resp2 => {
+        if(resp2 && resp2.error){
+          console.warn("No data or error:", resp2.error);
+          allData = [];
+        } else if(resp2) {
+          allData = resp2.rows || [];
+        }
+        if(allData.length === 0){
+          alert("No data found in CSV.");
+        } else {
+          // Clear all selection sets
+          clearSelectionsCompletely();
+          // Now show the UI
+          filteredData = allData.slice();
+          showDataUI(true);
+          renderDropdown();
+          renderTags();
+          renderPharmaPanel();
+          renderTable();
+        }
+      })
+      .catch(err => {
+        alert("Upload failed: " + err);
+      });
+    });
+
+    //-----------------------------------------------------------
+    // CLEAR ALL SELECTIONS in the DROPDOWN (only)
+    //-----------------------------------------------------------
+    clearSelLink.addEventListener("click", () => {
+      selectedPharma.clear();
+      selectedGeneric.clear();
+      selectedDrug.clear();
+      dropdownSelectionOrder = [];
+      renderDropdown();
+      renderTags();
+      renderPharmaPanel();
+    });
+
+    //-----------------------------------------------------------
+    // SEARCH => re-render dropdown
+    //-----------------------------------------------------------
+    searchInput.addEventListener("input", () => {
+      searchVal = searchInput.value.toLowerCase();
+      renderDropdown();
+    });
+
+    //-----------------------------------------------------------
+    // RENDER DROPDOWN
+    //-----------------------------------------------------------
+    function renderDropdown(){
+      // Clear old items (but keep the "Clear All Selections" link)
+      while(dropdownPanel.childNodes.length > 1){
+        dropdownPanel.removeChild(dropdownPanel.firstChild);
+      }
+      // Build sets of possible pharma/generic/drug that match searchVal
+      let pharmaSet = new Set();
+      let genericSet= new Set();
+      let drugSet   = new Set();
+      allData.forEach(row => {
+        if(!searchVal || row.pharma_class.toLowerCase().includes(searchVal)){
+          pharmaSet.add(row.pharma_class);
+        }
+        if(!searchVal || row.generic_name.toLowerCase().includes(searchVal)){
+          genericSet.add(row.generic_name);
+        }
+        if(!searchVal || row.drug_name_dose.toLowerCase().includes(searchVal)){
+          drugSet.add(row.drug_name_dose);
+        }
+      });
+
+      let items = [];
+      pharmaSet.forEach(ph => items.push({type:"pharma", text: ph}));
+      genericSet.forEach(ge => items.push({type:"generic", text: ge}));
+      drugSet.forEach(dr => items.push({type:"drug", text: dr}));
+
+      items.sort((a,b) => a.text.localeCompare(b.text));
+
+      items.forEach(obj => {
+        const di = document.createElement("div");
+        di.classList.add("dropdown-item");
+        di.textContent = obj.text;
+
+        // highlight if already selected
+        if(obj.type === "pharma"  && selectedPharma.has(obj.text))  di.classList.add("selected");
+        if(obj.type === "generic" && selectedGeneric.has(obj.text)) di.classList.add("selected");
+        if(obj.type === "drug"    && selectedDrug.has(obj.text))    di.classList.add("selected");
+
+        di.addEventListener("click", (e) => {
+          const isCtrl = e.ctrlKey || e.metaKey;
+          if(obj.type === "pharma"){
+            if(!isCtrl){
+              if(!selectedPharma.has(obj.text)){
+                selectedPharma.add(obj.text);
+                dropdownSelectionOrder.push({type:"pharma", value:obj.text});
+              }
+            } else {
+              // toggle
+              if(selectedPharma.has(obj.text)){
+                selectedPharma.delete(obj.text);
+                dropdownSelectionOrder = dropdownSelectionOrder.filter(
+                  o => !(o.type==="pharma" && o.value===obj.text)
+                );
+              } else {
+                selectedPharma.add(obj.text);
+                dropdownSelectionOrder.push({type:"pharma", value:obj.text});
+              }
+            }
+          }
+          else if(obj.type === "generic"){
+            if(!isCtrl){
+              if(!selectedGeneric.has(obj.text)){
+                selectedGeneric.add(obj.text);
+                dropdownSelectionOrder.push({type:"generic", value:obj.text});
+              }
+            } else {
+              if(selectedGeneric.has(obj.text)){
+                selectedGeneric.delete(obj.text);
+                dropdownSelectionOrder = dropdownSelectionOrder.filter(
+                  o => !(o.type==="generic" && o.value===obj.text)
+                );
+              } else {
+                selectedGeneric.add(obj.text);
+                dropdownSelectionOrder.push({type:"generic", value:obj.text});
+              }
+            }
+          }
+          else {
+            // drug
+            if(!isCtrl){
+              if(!selectedDrug.has(obj.text)){
+                selectedDrug.add(obj.text);
+                dropdownSelectionOrder.push({type:"drug", value:obj.text});
+              }
+            } else {
+              if(selectedDrug.has(obj.text)){
+                selectedDrug.delete(obj.text);
+                dropdownSelectionOrder = dropdownSelectionOrder.filter(
+                  o => !(o.type==="drug" && o.value===obj.text)
+                );
+              } else {
+                selectedDrug.add(obj.text);
+                dropdownSelectionOrder.push({type:"drug", value:obj.text});
+              }
+            }
+          }
+          renderDropdown();
+          renderTags();
+          renderPharmaPanel();
+        });
+        dropdownPanel.insertBefore(di, dropdownPanel.lastChild);
+      });
+    }
+
+    //-----------------------------------------------------------
+    // RENDER TAGS
+    //-----------------------------------------------------------
+    function renderTags(){
+      tagContainer.innerHTML = "";
+      dropdownSelectionOrder.forEach(obj => {
+        const label = obj.value;
+        let tag = makeTag(label, () => {
+          // remove from sets
+          if(obj.type==="pharma")  selectedPharma.delete(label);
+          if(obj.type==="generic") selectedGeneric.delete(label);
+          if(obj.type==="drug")    selectedDrug.delete(label);
+          dropdownSelectionOrder = dropdownSelectionOrder.filter(
+            o => !(o.type===obj.type && o.value===obj.value)
+          );
+          renderDropdown();
+          renderTags();
+          renderPharmaPanel();
+        });
+        tagContainer.appendChild(tag);
+      });
+    }
+    function makeTag(txt, onRemove){
+      const d = document.createElement("div");
+      d.classList.add("tag");
+      const s = document.createElement("span");
+      s.textContent = txt;
+      const x = document.createElement("span");
+      x.classList.add("remove-tag");
+      x.textContent = "X";
+      x.addEventListener("click", onRemove);
+      d.appendChild(s);
+      d.appendChild(x);
+      return d;
+    }
+
+    //-----------------------------------------------------------
+    // RENDER PHARMA PANEL
+    //-----------------------------------------------------------
+    // This panel shows all unique pharma_class values from the user's
+    // current *dropdown* selections (pharma/generic/drug).
+    // For each selected item, we find all matching rows in allData
+    // (match pharma_class, or match generic_name, or match drug_name_dose),
+    // gather that row's pharma_class, and build a combined set.
+    // Then we display that set in the panel. If empty, we hide the panel.
+    function renderPharmaPanel(){
+      // Build a set of all pharma_class from user’s dropdown picks
+      let resultSet = new Set();
+
+      // For each dropdown selection, find matching rows in allData
+      dropdownSelectionOrder.forEach(sel => {
+        if(sel.type === "pharma"){
+          // for rows that match row.pharma_class === sel.value
+          allData.forEach(row => {
+            if(row.pharma_class === sel.value){
+              resultSet.add(row.pharma_class);
+            }
+          });
+        }
+        else if(sel.type === "generic"){
+          // for rows that match row.generic_name === sel.value
+          allData.forEach(row => {
+            if(row.generic_name === sel.value){
+              // add that row’s pharma_class
+              resultSet.add(row.pharma_class);
+            }
+          });
+        }
+        else {
+          // sel.type === "drug"
+          allData.forEach(row => {
+            if(row.drug_name_dose === sel.value){
+              resultSet.add(row.pharma_class);
+            }
+          });
+        }
+      });
+
+      // If no selections => resultSet empty => hide panel
+      if(resultSet.size === 0){
+        pharmaPanel.style.display = "none";
+        pharmaList.innerHTML = "";
+        return;
+      } else {
+        pharmaPanel.style.display = "block";
+      }
+
+      // Display them
+      // We'll just list them one per line:
+      let arr = Array.from(resultSet).sort();
+      let html = arr.map(pc => `<div class="pharma-panel-item">${pc}</div>`).join("");
+      pharmaList.innerHTML = html;
+    }
+
+    //-----------------------------------------------------------
+    // RENDER TABLE
+    //-----------------------------------------------------------
+    function renderTable(){
+      tableBody.innerHTML = "";
+      filteredData.forEach(row => {
+        let tr = document.createElement("tr");
+
+        // 1) pharma_class checkbox
+        let tdPhCheck = document.createElement("td");
+        tdPhCheck.classList.add("select-col");
+        let c1 = document.createElement("input");
+        c1.type="checkbox";
+        c1.checked = selectedRowIndexes.has(row.rowIndex);
+        c1.addEventListener("change", () => {
+          if(c1.checked){
+            // auto-select all rows with same pharma_class
+            const ph = row.pharma_class;
+            filteredData.forEach(r => {
+              if(r.pharma_class === ph){
+                selectedRowIndexes.add(r.rowIndex);
+              }
+            });
+          } else {
+            selectedRowIndexes.delete(row.rowIndex);
+          }
+          renderTable();
+        });
+        tdPhCheck.appendChild(c1);
+        tr.appendChild(tdPhCheck);
+
+        let tdPhVal = document.createElement("td");
+        tdPhVal.textContent = row.pharma_class;
+        tr.appendChild(tdPhVal);
+
+        // 2) generic_name checkbox
+        let tdGnCheck = document.createElement("td");
+        tdGnCheck.classList.add("select-col");
+        let c2 = document.createElement("input");
+        c2.type="checkbox";
+        c2.checked = selectedRowIndexes.has(row.rowIndex);
+        c2.addEventListener("change", () => {
+          if(c2.checked){
+            const gn = row.generic_name;
+            filteredData.forEach(r => {
+              if(r.generic_name === gn){
+                selectedRowIndexes.add(r.rowIndex);
+              }
+            });
+          } else {
+            selectedRowIndexes.delete(row.rowIndex);
+          }
+          renderTable();
+        });
+        tdGnCheck.appendChild(c2);
+        tr.appendChild(tdGnCheck);
+
+        let tdGnVal = document.createElement("td");
+        tdGnVal.textContent = row.generic_name;
+        tr.appendChild(tdGnVal);
+
+        // 3) drug_name_dose checkbox
+        let tdDrCheck = document.createElement("td");
+        tdDrCheck.classList.add("select-col");
+        let c3 = document.createElement("input");
+        c3.type="checkbox";
+        c3.checked = selectedRowIndexes.has(row.rowIndex);
+        c3.addEventListener("change", () => {
+          if(c3.checked){
+            selectedRowIndexes.add(row.rowIndex);
+          } else {
+            selectedRowIndexes.delete(row.rowIndex);
+          }
+          renderTable();
+        });
+        tdDrCheck.appendChild(c3);
+        tr.appendChild(tdDrCheck);
+
+        let tdDrVal = document.createElement("td");
+        tdDrVal.textContent = row.drug_name_dose;
+        tr.appendChild(tdDrVal);
+
+        // Next columns: drug_concept_id, frequency, percentage
+        let tdDc = document.createElement("td");
+        tdDc.textContent = row.drug_concept_id;
+        tr.appendChild(tdDc);
+
+        let tdFr = document.createElement("td");
+        tdFr.textContent = row.frequency;
+        tr.appendChild(tdFr);
+
+        let tdPc = document.createElement("td");
+        tdPc.textContent = row.percentage;
+        tr.appendChild(tdPc);
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    //-----------------------------------------------------------
+    // UPDATE TABLE => filter out rows that do NOT match any selected
+    //-----------------------------------------------------------
+    updateTableBtn.addEventListener("click", () => {
+      if (selectedPharma.size === 0 && selectedGeneric.size === 0 && selectedDrug.size === 0) return;
+
+      filteredData = allData.filter(r =>
+          selectedPharma.has(r.pharma_class) ||
+          selectedGeneric.has(r.generic_name) ||
+          selectedDrug.has(r.drug_name_dose)
+      );
+      // ⛔ DO NOT clear selectedRowIndexes – keep prior picks
+      renderTable();
+    });
+
+    //-----------------------------------------------------------
+    // CLEAR TABLE => unselect table rows, keep dropdown
+    //-----------------------------------------------------------
+    clearTableBtn.addEventListener("click", () => {
+      selectedRowIndexes.clear();
+      renderTable();
+    });
+
+    //-----------------------------------------------------------
+    // NEXT COLUMN => reset everything, revert to full data
+    //-----------------------------------------------------------
+    nextColumnBtn.addEventListener("click", () => {
+      clearSelectionsCompletely();
+      colNameInput.value = "";
+      renderTable();
+    });
+
+    // Clears sets, reverts filteredData to allData, clears search bar, re-renders
+    function clearSelectionsCompletely(){
+      selectedPharma.clear();
+      selectedGeneric.clear();
+      selectedDrug.clear();
+      dropdownSelectionOrder = [];
+      selectedRowIndexes.clear();
+      searchVal = "";
+      searchInput.value = "";
+      filteredData = allData.slice();
+      renderDropdown();
+      renderTags();
+      renderPharmaPanel();
+    }
+
+    //-----------------------------------------------------------
+    // CAPTURE COLUMN => store it in previewColumns
+    //-----------------------------------------------------------
+    captureColumnBtn.addEventListener("click", () => {
+      const colName = colNameInput.value.trim();
+      if (!colName) { alert("Please enter a Column Name first."); return; }
+
+      const rowIdxs = Array.from(selectedRowIndexes);
+      if (rowIdxs.length === 0) { alert("Please select at least one row."); return; }
+
+      const doses = [], medIds = [];
+      rowIdxs.forEach(idx => {
+        const r = allData.find(x => x.rowIndex === idx);
+        if (r) { doses.push(r.drug_name_dose); medIds.push(r.medication_id); }
+      });
+
+      const stored = {
+        colName,
+        doses,
+        medicationIds      : medIds,
+        selectedPharma     : Array.from(selectedPharma),
+        selectedGeneric    : Array.from(selectedGeneric),
+        selectedDrug       : Array.from(selectedDrug),
+        dropdownOrder      : [...dropdownSelectionOrder]   //  NEW ➜ keep order for tags/panel
+      };
+
+      const ix = previewColumns.findIndex(c => c.colName === colName);
+      if (ix >= 0) previewColumns[ix] = stored; else previewColumns.push(stored);
+
+      currentlyEditingColIndex = -1;
+      renderPreview();
+    });
+
+    //-----------------------------------------------------------
+    // RENDER PREVIEW
+    //-----------------------------------------------------------
+    function renderPreview(){
+      if(previewColumns.length === 0){
+        previewBox.innerHTML = "<em>No columns captured yet.</em>";
+        return;
+      }
+      let html = `<table class="preview-table"><thead><tr>`;
+      previewColumns.forEach(col => {
+        html += `<th><span class="col-name-link" data-col="${col.colName}">${col.colName}</span></th>`;
+      });
+      html += `</tr></thead><tbody>`;
+
+      // find max number of rows among these columns
+      let maxLen = 0;
+      previewColumns.forEach(c => {
+        if(c.doses.length > maxLen) maxLen = c.doses.length;
+      });
+      // build row by row
+      for(let r=0; r<maxLen; r++){
+        html += `<tr>`;
+        previewColumns.forEach(col => {
+          let val = col.doses[r] || "";
+          html += `<td>${val}</td>`;
+        });
+        html += `</tr>`;
+      }
+      html += `</tbody></table>`;
+
+      previewBox.innerHTML = html;
+
+      // clickable col name => re-populate selections
+      previewBox.querySelectorAll(".col-name-link").forEach(lnk => {
+        lnk.addEventListener("click", () => {
+          const obj = previewColumns.find(c => c.colName === lnk.dataset.col);
+          if (!obj) return;
+
+          // reset UI
+          clearSelectionsCompletely();
+          colNameInput.value = obj.colName;
+
+          // restore dropdown selections + **order**
+          selectedPharma         = new Set(obj.selectedPharma);
+          selectedGeneric        = new Set(obj.selectedGeneric);
+          selectedDrug           = new Set(obj.selectedDrug);
+          dropdownSelectionOrder = [...obj.dropdownOrder];
+
+          // restore table rows & check-boxes
+          filteredData = allData.filter(r => obj.medicationIds.includes(r.medication_id));
+          selectedRowIndexes.clear();
+          filteredData.forEach(r => selectedRowIndexes.add(r.rowIndex));
+
+          renderDropdown();
+          renderTags();            // tags are back
+          renderPharmaPanel();     // pharma_class panel back
+          renderTable();
+        });
+      });
+    }
+
+    //-----------------------------------------------------------
+    // GENERATE NEW CSV => auto-build a filename: MED_MM_DD_YYYY_HH_MM_SS.csv
+    //-----------------------------------------------------------
+    generateNewCsvBtn.addEventListener("click", () => {
+      if(previewColumns.length === 0){
+        alert("No columns captured yet.");
+        return;
+      }
+      // Build the "MED_datetime" name
+      const now = new Date();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      const dd = String(now.getDate()).padStart(2,'0');
+      const yyyy = now.getFullYear();
+      const hh = String(now.getHours()).padStart(2,'0');
+      const min = String(now.getMinutes()).padStart(2,'0');
+      const ss = String(now.getSeconds()).padStart(2,'0');
+
+      const fileName = `MED_${mm}_${dd}_${yyyy}_${hh}_${min}_${ss}.csv`;
+
+      // Post to server
+      fetch("/generate_csv/", {
+        method:"POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          columns: previewColumns,
+          fileName: fileName
+        })
+      })
+      .then(resp => {
+        if(!resp.ok) throw new Error("CSV generation failed.");
+        return resp.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName; // The user can still rename if they want
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        alert("Generate CSV error: " + err);
+      });
+    });
+
+    //-----------------------------------------------------------
+    // NEW SESSION => flush session data in backend, then reload
+    //-----------------------------------------------------------
+    newSessionBtn.addEventListener("click", () => {
+      fetch("/new_session/", { method:"POST" })
+      .then(r => r.json())
+      .then(resp => {
+        if(resp.ok){
+          window.location.reload();
+        } else {
+          alert("Error clearing session.");
+        }
+      })
+      .catch(err => alert("Error clearing session: " + err));
+    });
+  </script>
+  

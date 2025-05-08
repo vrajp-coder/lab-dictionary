@@ -1,0 +1,848 @@
+<!-- File: templates/dictionaries/tab2.html -->
+<div class="page-container">
+  <!-- new Lab / Flowsheet labels -->
+  <div class="flex-row" style="gap:20px; margin-bottom:8px;">
+    <div style="flex:1; text-align:center;"><h4>Lab</h4></div>
+    <div style="flex:1; text-align:center;"><h4>Flowsheet</h4></div>
+  </div>
+
+  <h4>Upload &amp; Select Rows</h4>
+
+  <!-- upload buttons -->
+  <div style="display:flex; gap:12px; margin-bottom:15px;">
+    <button class="btn btn-success" id="uploadLabBtn">Upload Lab</button>
+    <input type="file" id="labFileInput"     accept=".csv" style="display:none;">
+    <button class="btn btn-success" id="uploadFlowsheetBtn">Upload Flowsheet</button>
+    <input type="file" id="flowsheetFileInput" accept=".csv" style="display:none;">
+  </div>
+
+  <!-- global search bar -->
+  <div style="margin-bottom:15px;">
+    <input type="text" id="labs-search-input"
+           class="form-control"
+           placeholder="Search concept_name or concept_code...">
+  </div>
+
+  <!-- ************  DROPDOWNS + TAGS  (flex wrapper)  ************ -->
+  <div id="dropdownFlex" class="flex-row" style="gap:20px; display:none;">
+    <!-- lab side -->
+    <div style="flex:1;">
+      <div id="lab-dropdown-section" style="display:none; margin-bottom:10px;">
+        <div class="dropdown-panel" id="lab-dropdown-panel"></div>
+        <div class="selected-tags" id="lab-tag-container" style="display:none; margin-top:5px;"></div>
+      </div>
+    </div>
+
+    <!-- flowsheet side -->
+    <div style="flex:1;">
+      <div id="flowsheet-dropdown-section" style="display:none; margin-bottom:10px;">
+        <div class="dropdown-panel" id="flowsheet-dropdown-panel"></div>
+        <div class="selected-tags" id="flowsheet-tag-container" style="display:none; margin-top:5px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- update table -->
+  <div style="margin-bottom:15px;">
+    <button class="btn btn-success" id="labsUpdateTableBtn" style="display:none;">Update Table</button>
+  </div>
+
+  <!-- ************  TABLES  (flex wrapper)  ************ -->
+  <div id="tableFlex" class="flex-row" style="gap:20px; display:none;">
+    <!-- Lab table -->
+    <div style="flex:1;">
+      <div id="lab-table-section" style="display:none; margin-bottom:10px;">
+        <div class="table-container" style="max-height:300px;">
+          <table class="csv-table">
+            <thead>
+              <tr>
+                <th class="select-col"></th><th>concept_name</th><th>concept_id</th>
+                <th>frequency</th><th>percentage</th><th>source_value</th>
+                <th>domain_id</th><th>vocabulary_id</th><th>concept_code</th><th>concept_class_id</th>
+              </tr>
+            </thead>
+            <tbody id="lab-table-body"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-danger" id="labClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
+      </div>
+    </div>
+
+    <!-- Flowsheet table -->
+    <div style="flex:1;">
+      <div id="flowsheet-table-section" style="display:none; margin-bottom:10px;">
+        <div class="table-container" style="max-height:300px;">
+          <table class="csv-table">
+            <thead>
+              <tr>
+                <th class="select-col"></th><th>concept_name</th><th>concept_id</th>
+                <th>frequency</th><th>percentage</th><th>source_value</th>
+                <th>domain_id</th><th>vocabulary_id</th><th>concept_code</th><th>concept_class_id</th>
+              </tr>
+            </thead>
+            <tbody id="flowsheet-table-body"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-danger" id="flowsheetClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ************  CAPTURE COLUMNS  (flex wrapper)  ************ -->
+  <div id="captureFlex" class="flex-row" style="gap:20px; display:none;">
+    <!-- Lab capture -->
+    <div style="flex:1;">
+      <div id="lab-capture-section" style="display:none;">
+        <h4>Capture Columns (Lab)</h4>
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <input type="text" id="lab-col-name" placeholder="Column Name">
+          <button class="btn btn-success" id="labCaptureBtn">Capture</button>
+          <button class="btn btn-danger" id="labNextColumnBtn">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flowsheet capture -->
+    <div style="flex:1;">
+      <div id="flowsheet-capture-section" style="display:none;">
+        <h4>Capture Columns (Flowsheet)</h4>
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <input type="text" id="flowsheet-col-name" placeholder="Column Name">
+          <button class="btn btn-success" id="flowsheetCaptureBtn">Capture</button>
+          <button class="btn btn-danger" id="flowsheetNextColumnBtn">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ************  CSV PREVIEW  (flex wrapper)  ************ -->
+  <div id="previewFlex" class="flex-row" style="gap:20px; display:none;">
+    <!-- Lab preview -->
+    <div style="flex:1;">
+      <div id="lab-preview-section" style="display:none;">
+        <h4>CSV Preview (Lab)</h4>
+        <div class="preview-box" id="lab-preview-box"><em>No columns captured yet.</em></div>
+        <div style="text-align:center; margin-top:10px;">
+          <button class="btn btn-success" id="labGenerateCsvBtn" style="display:none;">Generate CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flowsheet preview -->
+    <div style="flex:1;">
+      <div id="flowsheet-preview-section" style="display:none;">
+        <h4>CSV Preview (Flowsheet)</h4>
+        <div class="preview-box" id="flowsheet-preview-box"><em>No columns captured yet.</em></div>
+        <div style="text-align:center; margin-top:10px;">
+          <button class="btn btn-success" id="flowsheetGenerateCsvBtn" style="display:none;">Generate CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;">
+  <button class="btn btn-danger new-session-btn" id="labsNewSessionBtn">New Session</button>
+</div>
+  
+<script>
+  //-------------------------------------------------------
+  // TAB #2: "Labs" - STATES
+  //-------------------------------------------------------
+  let labData = [];          // entire lab dataset
+  let flowsheetData = [];    // entire flowsheet dataset
+  let filteredLabData = [];  // lab rows after "Update Table"
+  let filteredFlowData = []; // flowsheet rows after "Update Table"
+
+  // For lab dropdown
+  let labSelectedConcepts = new Set();        // user picks from lab (by concept_name / concept_code)
+  let labDropdownOrder = [];                  // order for tag display
+
+  // For flowsheet dropdown
+  let flowSelectedConcepts = new Set();
+  let flowDropdownOrder = [];
+
+  // For table row checkboxes
+  let labSelectedRows = new Set();         // rowIndex for Lab
+  let flowSelectedRows = new Set();        // rowIndex for Flowsheet
+
+  // For preview columns
+  let labPreviewColumns = [];      // array of { colName, conceptNames[], labIds[] }
+  let flowsheetPreviewColumns = [];     // array of { colName, conceptNames[], flowsheetIds[] }
+
+  // DOM
+  const uploadLabBtn = document.getElementById("uploadLabBtn");
+  const labFileInput = document.getElementById("labFileInput");
+  const uploadFlowsheetBtn = document.getElementById("uploadFlowsheetBtn");
+  const flowsheetFileInput = document.getElementById("flowsheetFileInput");
+
+  const labsSearchInput = document.getElementById("labs-search-input");
+  const labsUpdateTableBtn = document.getElementById("labsUpdateTableBtn");
+
+  const dropdownFlex = document.getElementById("dropdownFlex");
+  const tableFlex    = document.getElementById("tableFlex");
+  const captureFlex  = document.getElementById("captureFlex");
+  const previewFlex  = document.getElementById("previewFlex");
+
+
+  // Lab dropdown & tags
+  const labDropdownSection = document.getElementById("lab-dropdown-section");
+  const labDropdownPanel   = document.getElementById("lab-dropdown-panel");
+  const labTagContainer    = document.getElementById("lab-tag-container");
+
+  // Flowsheet dropdown & tags
+  const flowsheetDropdownSection = document.getElementById("flowsheet-dropdown-section");
+  const flowsheetDropdownPanel   = document.getElementById("flowsheet-dropdown-panel");
+  const flowsheetTagContainer    = document.getElementById("flowsheet-tag-container");
+
+  // Lab table
+  const labTableSection   = document.getElementById("lab-table-section");
+  const labTableBody      = document.getElementById("lab-table-body");
+  const labClearTableBtn  = document.getElementById("labClearTableBtn");
+
+  // Flowsheet table
+  const flowsheetTableSection  = document.getElementById("flowsheet-table-section");
+  const flowsheetTableBody     = document.getElementById("flowsheet-table-body");
+  const flowsheetClearTableBtn = document.getElementById("flowsheetClearTableBtn");
+
+  // Lab capture
+  const labCaptureSection  = document.getElementById("lab-capture-section");
+  const labColNameInput    = document.getElementById("lab-col-name");
+  const labCaptureBtn      = document.getElementById("labCaptureBtn");
+  const labNextColumnBtn   = document.getElementById("labNextColumnBtn");
+
+  // Flowsheet capture
+  const flowsheetCaptureSection = document.getElementById("flowsheet-capture-section");
+  const flowColNameInput        = document.getElementById("flowsheet-col-name");
+  const flowsheetCaptureBtn     = document.getElementById("flowsheetCaptureBtn");
+  const flowsheetNextColumnBtn  = document.getElementById("flowsheetNextColumnBtn");
+
+  // Lab preview
+  const labPreviewSection = document.getElementById("lab-preview-section");
+  const labPreviewBox     = document.getElementById("lab-preview-box");
+  const labGenerateCsvBtn = document.getElementById("labGenerateCsvBtn");
+
+  // Flowsheet preview
+  const flowsheetPreviewSection = document.getElementById("flowsheet-preview-section");
+  const flowsheetPreviewBox     = document.getElementById("flowsheet-preview-box");
+  const flowsheetGenerateCsvBtn = document.getElementById("flowsheetGenerateCsvBtn");
+
+  // New session
+  const labsNewSessionBtn = document.getElementById("labsNewSessionBtn");
+
+  /* ------------ helpers ------------ */
+  function showWrappers() {
+    dropdownFlex.style.display = "flex";
+    tableFlex.style.display    = "flex";
+    captureFlex.style.display  = "flex";
+    previewFlex.style.display  = "flex";
+  }
+  function makeTag(txt, onRemove){
+    const d = document.createElement("div");
+    d.classList.add("tag");
+    const s = document.createElement("span");
+    s.textContent = txt;
+    const x = document.createElement("span");
+    x.classList.add("remove-tag");
+    x.textContent = "X";
+    x.addEventListener("click", onRemove);
+    d.appendChild(s);
+    d.appendChild(x);
+    return d;
+  }
+
+  /* ------------ upload Lab ------------ */
+  uploadLabBtn.addEventListener("click", ()=>labFileInput.click());
+  labFileInput.addEventListener("change", e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const fd=new FormData(); fd.append("csvFile",f);
+    fetch("/upload_lab/",{method:"POST",body:fd})
+      .then(r=>r.json()).then(j=>{ if(j.error) throw j.error; return fetch("/get_lab_data/"); })
+      .then(r=>r.json()).then(j=>{
+        if(j.error) throw j.error;
+        labData=j.rows||[]; filteredLabData=[...labData];
+
+        labDropdownSection.style.display="block";
+        labTagContainer.style.display="none";
+        labTableSection.style.display="block";
+        labClearTableBtn.style.display="inline-block";
+        labCaptureSection.style.display="block";
+        labPreviewSection.style.display="block";
+        labGenerateCsvBtn.style.display="inline-block";
+
+        labDropdownPanel.style.display="block";          // <<< make panel visible
+        showWrappers();
+        renderLabDropdown("");
+        renderLabTags();
+        renderLabTable();   // <<< now draw
+        checkIfAnyDataUploaded();
+      })
+      .catch(err=>alert("Lab upload error: "+err));
+  });
+
+  /* ------------ upload Flowsheet ------------ */
+  uploadFlowsheetBtn.addEventListener("click", ()=>flowsheetFileInput.click());
+  flowsheetFileInput.addEventListener("change", e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const fd=new FormData(); fd.append("csvFile",f);
+    fetch("/upload_flowsheet/",{method:"POST",body:fd})
+      .then(r=>r.json()).then(j=>{ if(j.error) throw j.error; return fetch("/get_flowsheet_data/"); })
+      .then(r=>r.json()).then(j=>{
+        if(j.error) throw j.error;
+        flowsheetData=j.rows||[]; filteredFlowData=[...flowsheetData];
+
+        flowsheetDropdownSection.style.display="block";
+        flowsheetTagContainer.style.display="none";
+        flowsheetTableSection.style.display="block";
+        flowsheetClearTableBtn.style.display="inline-block";
+        flowsheetCaptureSection.style.display="block";
+        flowsheetPreviewSection.style.display="block";
+        flowsheetGenerateCsvBtn.style.display="inline-block";
+
+        flowsheetDropdownPanel.style.display="block";    // <<< make panel visible
+        showWrappers();
+        renderFlowDropdown("");
+        renderFlowTags();
+        renderFlowsheetTable(); // <<< draw
+        checkIfAnyDataUploaded();
+      })
+      .catch(err=>alert("Flowsheet upload error: "+err));
+  });
+
+  /* ------------ shared helpers ------------ */
+  function checkIfAnyDataUploaded(){
+    labsUpdateTableBtn.style.display =
+      (labData.length || flowsheetData.length) ? "inline-block" : "none";
+  }
+
+  //-------------------------------------------------------
+  // SEARCH => filters concept_name or concept_code in both
+  //-------------------------------------------------------
+  labsSearchInput.addEventListener("input", ()=>{
+    const val = labsSearchInput.value.toLowerCase();
+    // We'll re-render the appropriate dropdown(s)
+    renderLabDropdown(val);
+    renderFlowDropdown(val);
+  });
+
+  function renderLabDropdown(searchVal){
+  if(!labData.length) return;
+  labDropdownPanel.innerHTML="";
+  let set=new Set();
+  labData.forEach(r=>{
+    if(!searchVal ||
+        r.concept_name.toLowerCase().includes(searchVal) ||
+        r.concept_code.toLowerCase().includes(searchVal)){
+      set.add(r.concept_name);
+    }
+  });
+  const arr=[...set].sort();
+  labDropdownPanel.style.display = arr.length?"block":"none";  // <<< toggle
+  arr.forEach(name=>{
+    const di=document.createElement("div");
+    di.textContent=name; di.style.padding="5px"; di.style.cursor="pointer";
+    if(labSelectedConcepts.has(name)){di.style.background="#4caf50";di.style.color="#000";}
+    di.addEventListener("click",e=>{
+      const multi=e.ctrlKey||e.metaKey;
+      if(!multi){ if(!labSelectedConcepts.has(name)){labSelectedConcepts.add(name);labDropdownOrder.push(name);} }
+      else{
+        if(labSelectedConcepts.has(name)){labSelectedConcepts.delete(name);labDropdownOrder=labDropdownOrder.filter(n=>n!==name);}
+        else{labSelectedConcepts.add(name);labDropdownOrder.push(name);}
+      }
+      renderLabDropdown(searchVal); renderLabTags();
+    });
+    labDropdownPanel.appendChild(di);
+  });
+}
+  function renderLabTags(){
+    if(labSelectedConcepts.size===0){
+      labTagContainer.style.display="none";
+      labTagContainer.innerHTML="";
+      return;
+    }
+    labTagContainer.style.display="flex";
+    labTagContainer.innerHTML="";
+    labDropdownOrder.forEach(name=>{
+      if(!labSelectedConcepts.has(name)) return;
+      const tag = makeTag(name, () =>{
+        labSelectedConcepts.delete(name);
+        labDropdownOrder = labDropdownOrder.filter(n=>n!==name);
+        renderLabDropdown(labsSearchInput.value.toLowerCase());
+        renderLabTags();
+      });
+      labTagContainer.appendChild(tag);
+    });
+  }
+
+  function renderFlowDropdown(searchVal){
+  if(!flowsheetData.length) return;
+  flowsheetDropdownPanel.innerHTML="";
+  let set=new Set();
+  flowsheetData.forEach(r=>{
+    if(!searchVal ||
+        r.concept_name.toLowerCase().includes(searchVal) ||
+        r.concept_code.toLowerCase().includes(searchVal)){
+      set.add(r.concept_name);
+    }
+  });
+  const arr=[...set].sort();
+  flowsheetDropdownPanel.style.display = arr.length?"block":"none"; // <<< toggle
+  arr.forEach(name=>{
+    const di=document.createElement("div");
+    di.textContent=name; di.style.padding="5px"; di.style.cursor="pointer";
+    if(flowSelectedConcepts.has(name)){di.style.background="#4caf50";di.style.color="#000";}
+    di.addEventListener("click",e=>{
+      const multi=e.ctrlKey||e.metaKey;
+      if(!multi){ if(!flowSelectedConcepts.has(name)){flowSelectedConcepts.add(name);flowDropdownOrder.push(name);} }
+      else{
+        if(flowSelectedConcepts.has(name)){flowSelectedConcepts.delete(name);flowDropdownOrder=flowDropdownOrder.filter(n=>n!==name);}
+        else{flowSelectedConcepts.add(name);flowDropdownOrder.push(name);}
+      }
+      renderFlowDropdown(searchVal); renderFlowTags();
+    });
+    flowsheetDropdownPanel.appendChild(di);
+  });
+}
+  function renderFlowTags(){
+    if(flowSelectedConcepts.size===0){
+      flowsheetTagContainer.style.display="none";
+      flowsheetTagContainer.innerHTML="";
+      return;
+    }
+    flowsheetTagContainer.style.display="flex";
+    flowsheetTagContainer.innerHTML="";
+    flowDropdownOrder.forEach(name=>{
+      if(!flowSelectedConcepts.has(name)) return;
+      const tag = makeTag(name, () =>{
+        flowSelectedConcepts.delete(name);
+        flowDropdownOrder = flowDropdownOrder.filter(n=>n!==name);
+        renderFlowDropdown(labsSearchInput.value.toLowerCase());
+        renderFlowTags();
+      });
+      flowsheetTagContainer.appendChild(tag);
+    });
+  }
+
+  //-------------------------------------------------------
+  // UPDATE TABLE => filters both lab + flowsheet
+  //-------------------------------------------------------
+  labsUpdateTableBtn.addEventListener("click", () => {
+    if (labData.length && labSelectedConcepts.size) {
+      filteredLabData = labData.filter(r => labSelectedConcepts.has(r.concept_name));
+      // keep any existing row selections
+      renderLabTable();
+    }
+    if (flowsheetData.length && flowSelectedConcepts.size) {
+      filteredFlowData = flowsheetData.filter(r => flowSelectedConcepts.has(r.concept_name));
+      renderFlowsheetTable();
+    }
+  });
+
+  //-------------------------------------------------------
+  // RENDER LAB TABLE
+  //-------------------------------------------------------
+  function renderLabTable(){
+    labTableSection.style.display = filteredLabData.length ? "block" : "none";
+    labTableSection.querySelector('.table-container').style.display =
+        filteredLabData.length ? "block" : "none";
+    labTableBody.innerHTML="";
+    filteredLabData.forEach(row=>{
+      const tr = document.createElement("tr");
+      // 1) concept_name checkbox
+      let tdChk = document.createElement("td");
+      tdChk.classList.add("select-col");
+      let cbox = document.createElement("input");
+      cbox.type="checkbox";
+      cbox.checked = labSelectedRows.has(row.rowIndex);
+      cbox.addEventListener("change", ()=>{
+        if(cbox.checked){
+          // auto-select all rows with same concept_name
+          const cn = row.concept_name;
+          filteredLabData.forEach(r=>{
+            if(r.concept_name===cn){
+              labSelectedRows.add(r.rowIndex);
+            }
+          });
+        } else {
+          // remove this row from selection
+          labSelectedRows.delete(row.rowIndex);
+        }
+        renderLabTable(); // re-render
+      });
+      tdChk.appendChild(cbox);
+      tr.appendChild(tdChk);
+
+      // 2) concept_name
+      let tdName = document.createElement("td");
+      tdName.textContent = row.concept_name;
+      tr.appendChild(tdName);
+
+      // the remaining 8 columns
+      let tdCID = document.createElement("td");
+      tdCID.textContent = row.concept_id; tr.appendChild(tdCID);
+
+      let tdF = document.createElement("td");
+      tdF.textContent = row.frequency; tr.appendChild(tdF);
+
+      let tdP = document.createElement("td");
+      tdP.textContent = row.percentage; tr.appendChild(tdP);
+
+      let tdSV= document.createElement("td");
+      tdSV.textContent = row.source_value; tr.appendChild(tdSV);
+
+      let tdDom= document.createElement("td");
+      tdDom.textContent = row.domain_id; tr.appendChild(tdDom);
+
+      let tdVoc= document.createElement("td");
+      tdVoc.textContent = row.vocabulary_id; tr.appendChild(tdVoc);
+
+      let tdCC = document.createElement("td");
+      tdCC.textContent = row.concept_code; tr.appendChild(tdCC);
+
+      let tdClass= document.createElement("td");
+      tdClass.textContent = row.concept_class_id; tr.appendChild(tdClass);
+
+      labTableBody.appendChild(tr);
+    });
+  }
+
+  //-------------------------------------------------------
+  // RENDER FLOWSHEET TABLE
+  //-------------------------------------------------------
+  function renderFlowsheetTable(){
+    flowsheetTableSection.style.display = filteredFlowData.length ? "block" : "none";
+    flowsheetTableSection.querySelector('.table-container').style.display =
+        filteredFlowData.length ? "block" : "none";
+    flowsheetTableBody.innerHTML="";
+    filteredFlowData.forEach(row=>{
+      const tr = document.createElement("tr");
+      // 1) concept_name checkbox
+      let tdChk = document.createElement("td");
+      tdChk.classList.add("select-col");
+      let cbox = document.createElement("input");
+      cbox.type="checkbox";
+      cbox.checked = flowSelectedRows.has(row.rowIndex);
+      cbox.addEventListener("change", ()=>{
+        if(cbox.checked){
+          // auto-select
+          const cn = row.concept_name;
+          filteredFlowData.forEach(r=>{
+            if(r.concept_name===cn){
+              flowSelectedRows.add(r.rowIndex);
+            }
+          });
+        } else {
+          flowSelectedRows.delete(row.rowIndex);
+        }
+        renderFlowsheetTable();
+      });
+      tdChk.appendChild(cbox);
+      tr.appendChild(tdChk);
+
+      // concept_name
+      let tdName = document.createElement("td");
+      tdName.textContent = row.concept_name;
+      tr.appendChild(tdName);
+
+      // rest 8 columns
+      let tdCID = document.createElement("td");
+      tdCID.textContent = row.concept_id; tr.appendChild(tdCID);
+
+      let tdF = document.createElement("td");
+      tdF.textContent = row.frequency; tr.appendChild(tdF);
+
+      let tdP = document.createElement("td");
+      tdP.textContent = row.percentage; tr.appendChild(tdP);
+
+      let tdSV= document.createElement("td");
+      tdSV.textContent = row.source_value; tr.appendChild(tdSV);
+
+      let tdDom= document.createElement("td");
+      tdDom.textContent = row.domain_id; tr.appendChild(tdDom);
+
+      let tdVoc= document.createElement("td");
+      tdVoc.textContent = row.vocabulary_id; tr.appendChild(tdVoc);
+
+      let tdCC = document.createElement("td");
+      tdCC.textContent = row.concept_code; tr.appendChild(tdCC);
+
+      let tdClass= document.createElement("td");
+      tdClass.textContent = row.concept_class_id; tr.appendChild(tdClass);
+
+      flowsheetTableBody.appendChild(tr);
+    });
+  }
+
+  //-------------------------------------------------------
+  // CLEAR TABLE => just unselect rows
+  //-------------------------------------------------------
+  labClearTableBtn.addEventListener("click", ()=>{
+    labSelectedRows.clear();
+    renderLabTable();
+  });
+  flowsheetClearTableBtn.addEventListener("click", ()=>{
+    flowSelectedRows.clear();
+    renderFlowsheetTable();
+  });
+
+  //-------------------------------------------------------
+  // Next Column => reset for each side
+  //-------------------------------------------------------
+  labNextColumnBtn.addEventListener("click", ()=> {
+    // reset Lab side
+    labSelectedConcepts.clear();  labDropdownOrder = [];
+    labSelectedRows.clear();      filteredLabData = labData.slice();
+    labColNameInput.value = "";
+
+    // common reset
+    labsSearchInput.value = "";
+    renderLabDropdown("");   renderLabTags();   renderLabTable();
+
+    // ALSO reset Flowsheet dropdown panel
+    renderFlowDropdown("");  renderFlowTags();
+  });
+
+
+  flowsheetNextColumnBtn.addEventListener("click", ()=> {
+    // reset Flowsheet side
+    flowSelectedConcepts.clear();  flowDropdownOrder = [];
+    flowSelectedRows.clear();      filteredFlowData = flowsheetData.slice();
+    flowColNameInput.value = "";
+
+    // common reset
+    labsSearchInput.value = "";
+    renderFlowDropdown("");   renderFlowTags();   renderFlowsheetTable();
+
+    // ALSO reset Lab dropdown panel
+    renderLabDropdown("");    renderLabTags();
+  });
+
+
+  //-------------------------------------------------------
+  // CAPTURE  – store selections in preview arrays
+  //-------------------------------------------------------
+  labCaptureBtn.addEventListener("click", () => {
+    const colName = labColNameInput.value.trim();
+    if (!colName) { alert("Enter column name (Lab)."); return; }
+
+    const rowIdxs = Array.from(labSelectedRows);
+    if (rowIdxs.length === 0) { alert("No Lab rows selected."); return; }
+
+    const conceptNames = [], labIds = [];
+    rowIdxs.forEach(idx => {
+      const r = labData.find(x => x.rowIndex === idx);
+      if (r) { conceptNames.push(r.concept_name); labIds.push(r.lab_id); }
+    });
+
+    const obj = {
+      colName,
+      conceptNames,
+      labIds,
+      dropdownOrder : [...labDropdownOrder]   // keep order for tags
+    };
+    const ix = labPreviewColumns.findIndex(c => c.colName === colName);
+    if (ix >= 0) labPreviewColumns[ix] = obj; else labPreviewColumns.push(obj);
+    renderLabPreview();
+  });
+
+  flowsheetCaptureBtn.addEventListener("click", () => {
+    const colName = flowColNameInput.value.trim();
+    if (!colName) { alert("Enter column name (Flowsheet)."); return; }
+
+    const rowIdxs = Array.from(flowSelectedRows);
+    if (rowIdxs.length === 0) { alert("No Flowsheet rows selected."); return; }
+
+    const conceptNames = [], flowIds = [];
+    rowIdxs.forEach(idx => {
+      const r = flowsheetData.find(x => x.rowIndex === idx);
+      if (r) { conceptNames.push(r.concept_name); flowIds.push(r.flowsheet_id); }
+    });
+
+    const obj = {
+      colName,
+      conceptNames,
+      flowsheetIds : flowIds,
+      dropdownOrder: [...flowDropdownOrder]
+    };
+    const ix = flowsheetPreviewColumns.findIndex(c => c.colName === colName);
+    if (ix >= 0) flowsheetPreviewColumns[ix] = obj; else flowsheetPreviewColumns.push(obj);
+    renderFlowsheetPreview();
+  });
+
+  //-------------------------------------------------------
+  // PREVIEW RENDERERS  – now with clickable headers
+  //-------------------------------------------------------
+  function makePreviewTable(colArray, boxEl, clickHandler){
+    let html = '<table class="preview-table"><thead><tr>';
+    colArray.forEach(c=>{
+      html += `<th><span class="col-name-link" data-col="${c.colName}">${c.colName}</span></th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    let max = 0;
+    colArray.forEach(c=>{ if(c.conceptNames.length>max) max=c.conceptNames.length; });
+    for(let r=0;r<max;r++){
+      html += '<tr>';
+      colArray.forEach(c=>{
+        html += `<td>${c.conceptNames[r]||''}</td>`;
+      });
+      html+='</tr>';
+    }
+    html += '</tbody></table>';
+    boxEl.innerHTML = html;
+
+    // wire click events
+    boxEl.querySelectorAll('.col-name-link').forEach(sp=>{
+      sp.addEventListener('click',()=> clickHandler(sp.dataset.col));
+    });
+  }
+
+  // ---- Lab ----
+  function renderLabPreview(){
+    if (!labPreviewColumns.length){
+      labPreviewBox.innerHTML = "<em>No columns captured yet.</em>";
+      return;
+    }
+    makePreviewTable(labPreviewColumns, labPreviewBox, colName => {
+      const obj = labPreviewColumns.find(c => c.colName === colName);
+      if (!obj) return;
+
+      labColNameInput.value = obj.colName;
+
+      labSelectedConcepts = new Set(obj.conceptNames);
+      labDropdownOrder    = [...obj.dropdownOrder];
+
+      filteredLabData = labData.filter(r => obj.labIds.includes(r.lab_id));
+      labSelectedRows.clear();
+      filteredLabData.forEach(r => labSelectedRows.add(r.rowIndex));
+
+      renderLabDropdown(labsSearchInput.value.trim().toLowerCase());
+      renderLabTags();
+      renderLabTable();
+    });
+  }
+
+  // ---- Flowsheet ----
+  function renderFlowsheetPreview(){
+    if (!flowsheetPreviewColumns.length){
+      flowsheetPreviewBox.innerHTML = "<em>No columns captured yet.</em>";
+      return;
+    }
+    makePreviewTable(flowsheetPreviewColumns, flowsheetPreviewBox, colName => {
+      const obj = flowsheetPreviewColumns.find(c => c.colName === colName);
+      if (!obj) return;
+
+      flowColNameInput.value = obj.colName;
+
+      flowSelectedConcepts = new Set(obj.conceptNames);
+      flowDropdownOrder    = [...obj.dropdownOrder];
+
+      filteredFlowData = flowsheetData.filter(r => obj.flowsheetIds.includes(r.flowsheet_id));
+      flowSelectedRows.clear();
+      filteredFlowData.forEach(r => flowSelectedRows.add(r.rowIndex));
+
+      renderFlowDropdown(labsSearchInput.value.trim().toLowerCase());
+      renderFlowTags();
+      renderFlowsheetTable();
+    });
+  }
+
+  //-------------------------------------------------------
+  // Generate CSV => "LAB_mm_dd_yyyy_hh_mm_ss.csv" or "FLOWSHEET_..."
+  //-------------------------------------------------------
+  labGenerateCsvBtn.addEventListener("click", ()=>{
+    if(labPreviewColumns.length===0){
+      alert("No columns captured for Lab.");
+      return;
+    }
+    const now = new Date();
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    const dd = String(now.getDate()).padStart(2,'0');
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mn = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    const fileName = `LAB_${mm}_${dd}_${yyyy}_${hh}_${mn}_${ss}.csv`;
+
+    fetch("/generate_csv/", {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        columns: labPreviewColumns, // each => { colName, conceptNames, labIds }
+        fileType: "lab",
+        fileName: fileName
+      })
+    })
+    .then(resp=>{
+      if(!resp.ok) throw new Error("CSV generation failed.");
+      return resp.blob();
+    })
+    .then(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(err=> alert("Generate Lab CSV error:"+err));
+  });
+
+  flowsheetGenerateCsvBtn.addEventListener("click", ()=>{
+    if(flowsheetPreviewColumns.length===0){
+      alert("No columns captured for Flowsheet.");
+      return;
+    }
+    const now = new Date();
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    const dd = String(now.getDate()).padStart(2,'0');
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mn = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    const fileName = `FLOWSHEET_${mm}_${dd}_${yyyy}_${hh}_${mn}_${ss}.csv`;
+
+    fetch("/generate_csv/", {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        columns: flowsheetPreviewColumns,
+        fileType: "flowsheet",
+        fileName: fileName
+      })
+    })
+    .then(resp=>{
+      if(!resp.ok) throw new Error("CSV generation failed.");
+      return resp.blob();
+    })
+    .then(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(err=> alert("Generate Flowsheet CSV error:"+err));
+  });
+
+  //-------------------------------------------------------
+  // NEW SESSION
+  //-------------------------------------------------------
+  labsNewSessionBtn.addEventListener("click", ()=>{
+    fetch("/new_session/", {method:"POST"})
+    .then(r=>r.json())
+    .then(resp=>{
+      if(resp.ok){
+        window.location.reload();
+      } else {
+        alert("Error clearing session");
+      }
+    })
+    .catch(err=>alert("Error clearing session: "+err));
+  });
+
+</script>
+  
