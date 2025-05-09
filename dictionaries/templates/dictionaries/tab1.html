@@ -167,10 +167,6 @@
     function showDataUI(show){
       // .dropdown-panel => only show if `show===true`
       dropdownPanel.style.display  = show ? "block" : "none";
-      // The new .pharma-panel => show only if there are dropdown selections
-      // but let's do the same "show" logic for now. We'll also hide it if no actual items.
-      // We'll refine in renderPharmaPanel().
-
       pharmaPanel.style.display    = show ? "block" : "none";
       tagContainer.style.display   = show ? "flex"  : "none";
       tableContainer.style.display = show ? "block" : "none";
@@ -395,12 +391,6 @@
     //-----------------------------------------------------------
     // RENDER PHARMA PANEL
     //-----------------------------------------------------------
-    // This panel shows all unique pharma_class values from the user's
-    // current *dropdown* selections (pharma/generic/drug).
-    // For each selected item, we find all matching rows in allData
-    // (match pharma_class, or match generic_name, or match drug_name_dose),
-    // gather that row's pharma_class, and build a combined set.
-    // Then we display that set in the panel. If empty, we hide the panel.
     function renderPharmaPanel(){
       // Build a set of all pharma_class from user’s dropdown picks
       let resultSet = new Set();
@@ -619,7 +609,7 @@
         selectedPharma     : Array.from(selectedPharma),
         selectedGeneric    : Array.from(selectedGeneric),
         selectedDrug       : Array.from(selectedDrug),
-        dropdownOrder      : [...dropdownSelectionOrder]   //  NEW ➜ keep order for tags/panel
+        dropdownOrder      : [...dropdownSelectionOrder]
       };
 
       const ix = previewColumns.findIndex(c => c.colName === colName);
@@ -683,8 +673,8 @@
           filteredData.forEach(r => selectedRowIndexes.add(r.rowIndex));
 
           renderDropdown();
-          renderTags();            // tags are back
-          renderPharmaPanel();     // pharma_class panel back
+          renderTags();
+          renderPharmaPanel();
           renderTable();
         });
       });
