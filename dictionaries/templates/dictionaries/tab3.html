@@ -516,6 +516,7 @@ function renderProcTable(){
     });
     procTableBody.appendChild(tr);
   });
+  addEllipsisTooltips(procTableBody);
 }
 function renderIcdTable(){
   icdTableSection.style.display = filteredIcdData.length?"block":"none";
@@ -545,6 +546,7 @@ function renderIcdTable(){
     });
     icdTableBody.appendChild(tr);
   });
+  addEllipsisTooltips(icdTableBody);
 }
 
 /* ----------------------------------------------------------------
@@ -691,4 +693,11 @@ procNewSessionBtn.addEventListener("click", ()=>{
     .then(j=>{ if(j.ok) window.location.reload(); else alert("Error clearing session"); })
     .catch(err=>alert("Error clearing session: "+err));
 });
+
+/* Tiny utility: give every <td> its full text as a tooltip */
+function addEllipsisTooltips(parentTableBody){
+  parentTableBody.querySelectorAll("td").forEach(td=>{
+    td.title = td.textContent.trim();
+  });
+}
 </script>

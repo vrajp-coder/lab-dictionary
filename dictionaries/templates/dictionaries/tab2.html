@@ -504,6 +504,7 @@
 
       labTableBody.appendChild(tr);
     });
+    addEllipsisTooltips(labTableBody);
   }
 
   //-------------------------------------------------------
@@ -571,6 +572,7 @@
 
       flowsheetTableBody.appendChild(tr);
     });
+    addEllipsisTooltips(flowsheetTableBody);
   }
 
   //-------------------------------------------------------
@@ -843,6 +845,11 @@
     })
     .catch(err=>alert("Error clearing session: "+err));
   });
-
+  /* Tiny utility: give every <td> its full text as a tooltip */
+  function addEllipsisTooltips(parentTableBody){
+    parentTableBody.querySelectorAll("td").forEach(td=>{
+      td.title = td.textContent.trim();
+    });
+  }
 </script>
   
