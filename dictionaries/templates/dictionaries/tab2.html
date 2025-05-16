@@ -6,21 +6,22 @@
     <div style="flex:1; text-align:center;"><h4>Flowsheet</h4></div>
   </div>
 
-  <h4>Upload &amp; Select Rows</h4>
+  <h4 style="text-align:center;">Select Rows</h4>
 
-  <!-- upload buttons -->
-  <div style="display:flex; gap:12px; margin-bottom:15px;">
-    <button class="btn btn-success" id="uploadLabBtn">Upload Lab</button>
-    <input type="file" id="labFileInput"     accept=".csv" style="display:none;">
-    <button class="btn btn-success" id="uploadFlowsheetBtn">Upload Flowsheet</button>
-    <input type="file" id="flowsheetFileInput" accept=".csv" style="display:none;">
+  <div class="flex-row" style="gap:20px; margin-bottom:12px;">
+    <div style="flex:1; text-align:center;">
+      <em id="lab-loader" style="display:none;">Loading lab data…</em>
+    </div>
+    <div style="flex:1; text-align:center;">
+      <em id="flow-loader" style="display:none;">Loading flowsheet data…</em>
+    </div>
   </div>
 
   <!-- global search bar -->
   <div style="margin-bottom:15px;">
     <input type="text" id="labs-search-input"
            class="form-control"
-           placeholder="Search concept_name or concept_code...">
+           placeholder="Search concept_name...">
   </div>
 
   <!-- ************  DROPDOWNS + TAGS  (flex wrapper)  ************ -->
@@ -56,9 +57,8 @@
           <table class="csv-table">
             <thead>
               <tr>
-                <th class="select-col"></th><th>concept_name</th><th>concept_id</th>
-                <th>frequency</th><th>percentage</th><th>source_value</th>
-                <th>domain_id</th><th>vocabulary_id</th><th>concept_code</th><th>concept_class_id</th>
+                <th class="select-col"></th><th>concept_name</th>
+                <th>frequency</th><th>percentage</th><th>unit_source_value</th>
               </tr>
             </thead>
             <tbody id="lab-table-body"></tbody>
@@ -75,9 +75,8 @@
           <table class="csv-table">
             <thead>
               <tr>
-                <th class="select-col"></th><th>concept_name</th><th>concept_id</th>
-                <th>frequency</th><th>percentage</th><th>source_value</th>
-                <th>domain_id</th><th>vocabulary_id</th><th>concept_code</th><th>concept_class_id</th>
+                <th class="select-col"></th><th>concept_name</th>
+                <th>frequency</th><th>percentage</th><th>value_source_value</th>
               </tr>
             </thead>
             <tbody id="flowsheet-table-body"></tbody>
@@ -171,12 +170,10 @@
   let flowsheetPreviewColumns = [];     // array of { colName, conceptNames[], flowsheetIds[] }
 
   // DOM
-  const uploadLabBtn = document.getElementById("uploadLabBtn");
-  const labFileInput = document.getElementById("labFileInput");
-  const uploadFlowsheetBtn = document.getElementById("uploadFlowsheetBtn");
-  const flowsheetFileInput = document.getElementById("flowsheetFileInput");
+  const labLoader  = document.getElementById("lab-loader");
+  const flowLoader = document.getElementById("flow-loader");
 
-  const labsSearchInput = document.getElementById("labs-search-input");
+  const labsSearchInput    = document.getElementById("labs-search-input");
   const labsUpdateTableBtn = document.getElementById("labsUpdateTableBtn");
 
   const dropdownFlex = document.getElementById("dropdownFlex");
@@ -251,69 +248,56 @@
     return d;
   }
 
-  /* ------------ upload Lab ------------ */
-  uploadLabBtn.addEventListener("click", ()=>labFileInput.click());
-  labFileInput.addEventListener("change", e=>{
-    const f=e.target.files[0]; if(!f) return;
-    const fd=new FormData(); fd.append("csvFile",f);
-    fetch("/upload_lab/",{method:"POST",body:fd})
-      .then(r=>r.json()).then(j=>{ if(j.error) throw j.error; return fetch("/get_lab_data/"); })
-      .then(r=>r.json()).then(j=>{
-        if(j.error) throw j.error;
-        labData=j.rows||[]; filteredLabData=[...labData];
+  /* ---- auto‑load datasets ---- */
+  window.addEventListener("DOMContentLoaded", () => {
+    labLoader.style.display   = "inline";
+    flowLoader.style.display  = "inline";
 
-        labDropdownSection.style.display="block";
-        labTagContainer.style.display="none";
-        labTableSection.style.display="block";
-        labClearTableBtn.style.display="inline-block";
-        labCaptureSection.style.display="block";
-        labPreviewSection.style.display="block";
-        labGenerateCsvBtn.style.display="inline-block";
+    Promise.all([
+      fetch("/get_lab_data/").then(r=>r.json()),
+      fetch("/get_flowsheet_data/").then(r=>r.json())
+    ])
+    .then(([labJson, flowJson]) => {
+      labData       = labJson.rows || [];
+      flowsheetData = flowJson.rows || [];
+      filteredLabData  = labData.slice();
+      filteredFlowData = flowsheetData.slice();
 
-        labDropdownPanel.style.display="block";          // <<< make panel visible
-        showWrappers();
-        renderLabDropdown("");
-        renderLabTags();
-        renderLabTable();   // <<< now draw
-        checkIfAnyDataUploaded();
-      })
-      .catch(err=>alert("Lab upload error: "+err));
+      labLoader.style.display  = "none";
+      flowLoader.style.display = "none";
+
+      if (!labData.length && !flowsheetData.length){
+        alert("Datasets not found on server.");
+        return;
+      }
+
+      // show UI
+      labDropdownSection.style.display       = "block";
+      flowsheetDropdownSection.style.display = "block";
+      labTableSection.style.display          = "block";
+      flowsheetTableSection.style.display    = "block";
+      labClearTableBtn.style.display         = "inline-block";
+      flowsheetClearTableBtn.style.display   = "inline-block";
+      labCaptureSection.style.display        = "block";
+      flowsheetCaptureSection.style.display  = "block";
+      labPreviewSection.style.display        = "block";
+      flowsheetPreviewSection.style.display  = "block";
+      labGenerateCsvBtn.style.display        = "inline-block";
+      flowsheetGenerateCsvBtn.style.display  = "inline-block";
+      labsUpdateTableBtn.style.display       = "inline-block";
+
+      showWrappers();
+      renderLabDropdown("");
+      renderFlowDropdown("");
+      renderLabTable();
+      renderFlowsheetTable();
+    })
+    .catch(err=>{
+      labLoader.textContent   = "Load error";
+      flowLoader.textContent  = "Load error";
+      console.error(err);
+    });
   });
-
-  /* ------------ upload Flowsheet ------------ */
-  uploadFlowsheetBtn.addEventListener("click", ()=>flowsheetFileInput.click());
-  flowsheetFileInput.addEventListener("change", e=>{
-    const f=e.target.files[0]; if(!f) return;
-    const fd=new FormData(); fd.append("csvFile",f);
-    fetch("/upload_flowsheet/",{method:"POST",body:fd})
-      .then(r=>r.json()).then(j=>{ if(j.error) throw j.error; return fetch("/get_flowsheet_data/"); })
-      .then(r=>r.json()).then(j=>{
-        if(j.error) throw j.error;
-        flowsheetData=j.rows||[]; filteredFlowData=[...flowsheetData];
-
-        flowsheetDropdownSection.style.display="block";
-        flowsheetTagContainer.style.display="none";
-        flowsheetTableSection.style.display="block";
-        flowsheetClearTableBtn.style.display="inline-block";
-        flowsheetCaptureSection.style.display="block";
-        flowsheetPreviewSection.style.display="block";
-        flowsheetGenerateCsvBtn.style.display="inline-block";
-
-        flowsheetDropdownPanel.style.display="block";    // <<< make panel visible
-        showWrappers();
-        renderFlowDropdown("");
-        renderFlowTags();
-        renderFlowsheetTable(); // <<< draw
-        checkIfAnyDataUploaded();
-      })
-      .catch(err=>alert("Flowsheet upload error: "+err));
-  });
-
-  /* ------------ shared helpers ------------ */
-  function checkIfAnyDataUploaded(){
-    labsUpdateTableBtn.style.display =
-      (labData.length || flowsheetData.length) ? "inline-block" : "none";
-  }
 
   //-------------------------------------------------------
   // SEARCH => filters concept_name or concept_code in both
@@ -331,8 +315,7 @@
   let set=new Set();
   labData.forEach(r=>{
     if(!searchVal ||
-        r.concept_name.toLowerCase().includes(searchVal) ||
-        r.concept_code.toLowerCase().includes(searchVal)){
+        r.concept_name.toLowerCase().includes(searchVal)){
       set.add(r.concept_name);
     }
   });
@@ -380,8 +363,7 @@
   let set=new Set();
   flowsheetData.forEach(r=>{
     if(!searchVal ||
-        r.concept_name.toLowerCase().includes(searchVal) ||
-        r.concept_code.toLowerCase().includes(searchVal)){
+        r.concept_name.toLowerCase().includes(searchVal)){
       set.add(r.concept_name);
     }
   });
@@ -477,10 +459,7 @@
       tdName.textContent = row.concept_name;
       tr.appendChild(tdName);
 
-      // the remaining 8 columns
-      let tdCID = document.createElement("td");
-      tdCID.textContent = row.concept_id; tr.appendChild(tdCID);
-
+      // the remaining 3 columns
       let tdF = document.createElement("td");
       tdF.textContent = row.frequency; tr.appendChild(tdF);
 
@@ -488,19 +467,7 @@
       tdP.textContent = row.percentage; tr.appendChild(tdP);
 
       let tdSV= document.createElement("td");
-      tdSV.textContent = row.source_value; tr.appendChild(tdSV);
-
-      let tdDom= document.createElement("td");
-      tdDom.textContent = row.domain_id; tr.appendChild(tdDom);
-
-      let tdVoc= document.createElement("td");
-      tdVoc.textContent = row.vocabulary_id; tr.appendChild(tdVoc);
-
-      let tdCC = document.createElement("td");
-      tdCC.textContent = row.concept_code; tr.appendChild(tdCC);
-
-      let tdClass= document.createElement("td");
-      tdClass.textContent = row.concept_class_id; tr.appendChild(tdClass);
+      tdSV.textContent = row.unit_source_value; tr.appendChild(tdSV);
 
       labTableBody.appendChild(tr);
     });
@@ -545,10 +512,7 @@
       tdName.textContent = row.concept_name;
       tr.appendChild(tdName);
 
-      // rest 8 columns
-      let tdCID = document.createElement("td");
-      tdCID.textContent = row.concept_id; tr.appendChild(tdCID);
-
+      // the remaining 3 columns
       let tdF = document.createElement("td");
       tdF.textContent = row.frequency; tr.appendChild(tdF);
 
@@ -556,19 +520,7 @@
       tdP.textContent = row.percentage; tr.appendChild(tdP);
 
       let tdSV= document.createElement("td");
-      tdSV.textContent = row.source_value; tr.appendChild(tdSV);
-
-      let tdDom= document.createElement("td");
-      tdDom.textContent = row.domain_id; tr.appendChild(tdDom);
-
-      let tdVoc= document.createElement("td");
-      tdVoc.textContent = row.vocabulary_id; tr.appendChild(tdVoc);
-
-      let tdCC = document.createElement("td");
-      tdCC.textContent = row.concept_code; tr.appendChild(tdCC);
-
-      let tdClass= document.createElement("td");
-      tdClass.textContent = row.concept_class_id; tr.appendChild(tdClass);
+      tdSV.textContent = row.value_source_value; tr.appendChild(tdSV);
 
       flowsheetTableBody.appendChild(tr);
     });

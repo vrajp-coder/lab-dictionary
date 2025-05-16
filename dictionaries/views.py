@@ -1,410 +1,306 @@
 # views.py
 import csv
 import io
+import os, glob, pathlib
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+
+BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
+
+_MED_CACHE,  _MED_MTIME  = None, 0      # drug_exposure_*.csv
+_LAB_CACHE,  _LAB_MTIME  = None, 0      # measurement_*.csv
+_FLOW_CACHE, _FLOW_MTIME = None, 0      # observation_*.csv
+_PROC_CACHE, _PROC_MTIME = None, 0      # procedure_*.csv
+_ICD_CACHE,  _ICD_MTIME  = None, 0      # icd10_cpt_*.csv
 
 def index_view(request):
     # Renders the base.html, which includes tab1, tab2, tab3
     return render(request, "dictionaries/base.html")
 
-
-@csrf_exempt
-def upload_medication_view(request):
+def _load_med_data():
     """
-    Replaces the old upload_csv_view. For the first tab "Medications".
-    Requires 7 columns (case-insensitive):
-      medication_id, pharma_class, generic_name, drug_name_dose,
-      drug_concept_id, frequency, percentage
+    Load the newest drug_exposure_*.csv from dictionaries/data/.
+    Caches the parsed list until the file timestamp changes.
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Must be POST"}, status=400)
-    if "csvFile" not in request.FILES:
-        return JsonResponse({"error": "No file uploaded."}, status=400)
+    global _MED_CACHE, _MED_MTIME
 
-    file = request.FILES["csvFile"]
-    try:
-        decoded = file.read().decode("utf-8", errors="replace")
-        lines = decoded.splitlines()
-        if not lines:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
+    pattern = BASE_DIR / "dictionaries" / "data" / "drug_exposure_*.csv"
+    files = glob.glob(str(pattern))
+    if not files:
+        return []
 
-        reader = csv.reader(lines, delimiter=",")
-        rows = list(reader)
-        if not rows:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
+    latest = max(files, key=os.path.getmtime)
+    mtime  = os.path.getmtime(latest)
 
-        header = [h.strip().lower() for h in rows[0]]
-        required_cols = [
-            "medication_id",
-            "pharma_class",
-            "generic_name",
-            "drug_name_dose",
-            "drug_concept_id",
-            "frequency",
-            "percentage"
-        ]
-        # Check presence
-        for rc in required_cols:
-            if rc not in header:
-                return JsonResponse({"error": f"Missing required column '{rc}'"}, status=400)
+    if _MED_CACHE is not None and mtime == _MED_MTIME:
+        return _MED_CACHE     # cached copy still fresh
 
-        data_list = []
-        for row in rows[1:]:
-            row_dict = {}
-            for colName in required_cols:
-                idx = header.index(colName)
-                val = row[idx].strip() if idx < len(row) else ""
-                row_dict[colName] = val if val else "null"
-            data_list.append(row_dict)
+    required = [
+        "medication_id", "pharma_class", "generic_name",
+        "drug_name_dose", "drug_concept_id", "frequency", "percentage"
+    ]
 
-        request.session["csv_data"] = data_list  # same session key as before
-        return JsonResponse({"ok": True})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    data = []
+    with open(latest, newline="", encoding="utf-8", errors="replace") as fh:
+        rdr = csv.DictReader(fh)
+        # normalise header names to lower
+        field_map = {h.lower(): h for h in rdr.fieldnames}
+        for col in required:
+            if col not in field_map:
+                raise ValueError(f"{latest} missing column '{col}'")
+        for row in rdr:
+            rec = {col: (row[field_map[col]] or "null").strip() for col in required}
+            data.append(rec)
 
+    _MED_CACHE, _MED_MTIME = data, mtime
+    return data
 
 @csrf_exempt
 def get_medication_data_view(request):
-    """
-    For tab #1 ("Medications"). Returns what's in session["csv_data"].
-    """
     if request.method != "GET":
         return JsonResponse({"error": "Must be GET"}, status=400)
-    data_list = request.session.get("csv_data", [])
-    full_result = []
-    for i, row in enumerate(data_list):
-        row_obj = {
-            "rowIndex": i,
-            "medication_id": row["medication_id"],
-            "pharma_class": row["pharma_class"],
-            "generic_name": row["generic_name"],
-            "drug_name_dose": row["drug_name_dose"],
-            "drug_concept_id": row["drug_concept_id"],
-            "frequency": row["frequency"],
-            "percentage": row["percentage"]
+
+    data_list = _load_med_data()
+    result = [
+        {
+            "rowIndex"       : i,
+            "medication_id"  : r["medication_id"],   # hidden on client
+            "pharma_class"   : r["pharma_class"],
+            "generic_name"   : r["generic_name"],
+            "drug_name_dose" : r["drug_name_dose"],
+            "drug_concept_id": r["drug_concept_id"],
+            "frequency"      : r["frequency"],
+            "percentage"     : r["percentage"],
         }
-        full_result.append(row_obj)
-    return JsonResponse({"rows": full_result})
+        for i, r in enumerate(data_list)
+    ]
+    return JsonResponse({"rows": result})
 
-
-@csrf_exempt
-def upload_lab_view(request):
+def _load_lab_data():
     """
-    For tab #2 ("Labs"), left side => user uploads a CSV with columns:
-      lab_id + (concept_name, concept_id, frequency, percentage,
-                source_value, domain_id, vocabulary_id,
-                concept_code, concept_class_id)
-    We'll store them in session["lab_data"].
-    If the file is missing any of these 10 columns (case-insensitive),
-    we return an error.
+    Load newest measurement_*.csv → list[dict].
     """
-    if request.method != "POST":
-        return JsonResponse({"error": "Must be POST"}, status=400)
-    if "csvFile" not in request.FILES:
-        return JsonResponse({"error": "No file uploaded."}, status=400)
+    global _LAB_CACHE, _LAB_MTIME
+    pattern = BASE_DIR / "dictionaries" / "data" / "measurement_*.csv"
+    files   = glob.glob(str(pattern))
+    if not files: return []
 
-    file = request.FILES["csvFile"]
-    try:
-        decoded = file.read().decode("utf-8", errors="replace")
-        lines = decoded.splitlines()
-        if not lines:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
+    latest  = max(files, key=os.path.getmtime)
+    mtime   = os.path.getmtime(latest)
+    if _LAB_CACHE is not None and mtime == _LAB_MTIME:
+        return _LAB_CACHE
 
-        reader = csv.reader(lines)
-        rows = list(reader)
-        if not rows:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
+    required = [
+        "measurement_id",    # hidden on UI
+        "concept_name",
+        "frequency", "percentage",
+        "unit_source_value"
+    ]
+    data = []
+    with open(latest, newline="", encoding="utf-8", errors="replace") as fh:
+        rdr = csv.DictReader(fh)
+        fmap = {h.lower(): h for h in rdr.fieldnames}
+        for col in required:
+            if col not in fmap:
+                raise ValueError(f"{latest} missing column '{col}'")
+        for row in rdr:
+            rec = {col: (row[fmap[col]] or "null").strip() for col in required}
+            data.append(rec)
 
-        header = [h.strip().lower() for h in rows[0]]
-        required_cols = [
-            "lab_id",
-            "concept_name",
-            "concept_id",
-            "frequency",
-            "percentage",
-            "source_value",
-            "domain_id",
-            "vocabulary_id",
-            "concept_code",
-            "concept_class_id"
-        ]
-        for rc in required_cols:
-            if rc not in header:
-                return JsonResponse({"error": f"Missing required column '{rc}'"}, status=400)
-
-        data_list = []
-        for row in rows[1:]:
-            row_dict = {}
-            for colName in required_cols:
-                idx = header.index(colName)
-                val = row[idx].strip() if idx < len(row) else ""
-                row_dict[colName] = val if val else "null"
-            data_list.append(row_dict)
-
-        request.session["lab_data"] = data_list
-        return JsonResponse({"ok": True})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
+    _LAB_CACHE, _LAB_MTIME = data, mtime
+    return data
 
 @csrf_exempt
 def get_lab_data_view(request):
-    """Returns session["lab_data"] with rowIndex, or [] if none."""
     if request.method != "GET":
         return JsonResponse({"error": "Must be GET"}, status=400)
-    data_list = request.session.get("lab_data", [])
-    full_result = []
-    for i, row in enumerate(data_list):
-        row_obj = {
-            "rowIndex": i,
-            "lab_id": row["lab_id"],
-            "concept_name": row["concept_name"],
-            "concept_id": row["concept_id"],
-            "frequency": row["frequency"],
-            "percentage": row["percentage"],
-            "source_value": row["source_value"],
-            "domain_id": row["domain_id"],
-            "vocabulary_id": row["vocabulary_id"],
-            "concept_code": row["concept_code"],
-            "concept_class_id": row["concept_class_id"]
-        }
-        full_result.append(row_obj)
-    return JsonResponse({"rows": full_result})
 
-
-@csrf_exempt
-def upload_flowsheet_view(request):
-    """
-    For tab #2 ("Labs"), right side => user uploads a CSV with columns:
-      flowsheet_id + (concept_name, concept_id, frequency, percentage,
-                      source_value, domain_id, vocabulary_id,
-                      concept_code, concept_class_id)
-    We'll store them in session["flowsheet_data"].
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "Must be POST"}, status=400)
-    if "csvFile" not in request.FILES:
-        return JsonResponse({"error": "No file uploaded."}, status=400)
-
-    file = request.FILES["csvFile"]
-    try:
-        decoded = file.read().decode("utf-8", errors="replace")
-        lines = decoded.splitlines()
-        if not lines:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
-
-        reader = csv.reader(lines)
-        rows = list(reader)
-        if not rows:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
-
-        header = [h.strip().lower() for h in rows[0]]
-        required_cols = [
-            "flowsheet_id",
-            "concept_name",
-            "concept_id",
-            "frequency",
-            "percentage",
-            "source_value",
-            "domain_id",
-            "vocabulary_id",
-            "concept_code",
-            "concept_class_id"
+    rows = _load_lab_data()
+    return JsonResponse({
+        "rows": [
+            {
+                "rowIndex"        : i,
+                "lab_id"          : r["measurement_id"],      # JS still expects lab_id
+                "concept_name"    : r["concept_name"],
+                "frequency"       : r["frequency"],
+                "percentage"      : r["percentage"],
+                "unit_source_value": r["unit_source_value"],
+            }
+            for i, r in enumerate(rows)
         ]
-        for rc in required_cols:
-            if rc not in header:
-                return JsonResponse({"error": f"Missing required column '{rc}'"}, status=400)
+    })
 
-        data_list = []
-        for row in rows[1:]:
-            row_dict = {}
-            for colName in required_cols:
-                idx = header.index(colName)
-                val = row[idx].strip() if idx < len(row) else ""
-                row_dict[colName] = val if val else "null"
-            data_list.append(row_dict)
+def _load_flow_data():
+    """
+    Load newest observation_*.csv → list[dict].
+    """
+    global _FLOW_CACHE, _FLOW_MTIME
+    pattern = BASE_DIR / "dictionaries" / "data" / "observation_*.csv"
+    files   = glob.glob(str(pattern))
+    if not files: return []
 
-        request.session["flowsheet_data"] = data_list
-        return JsonResponse({"ok": True})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    latest  = max(files, key=os.path.getmtime)
+    mtime   = os.path.getmtime(latest)
+    if _FLOW_CACHE is not None and mtime == _FLOW_MTIME:
+        return _FLOW_CACHE
 
+    required = [
+        "observation_id",    # hidden on UI
+        "concept_name",
+        "frequency", "percentage",
+        "value_source_value"
+    ]
+    data = []
+    with open(latest, newline="", encoding="utf-8", errors="replace") as fh:
+        rdr = csv.DictReader(fh)
+        fmap = {h.lower(): h for h in rdr.fieldnames}
+        for col in required:
+            if col not in fmap:
+                raise ValueError(f"{latest} missing column '{col}'")
+        for row in rdr:
+            rec = {col: (row[fmap[col]] or "null").strip() for col in required}
+            data.append(rec)
+
+    _FLOW_CACHE, _FLOW_MTIME = data, mtime
+    return data
 
 @csrf_exempt
 def get_flowsheet_data_view(request):
-    """Returns session["flowsheet_data"] with rowIndex, or [] if none."""
     if request.method != "GET":
         return JsonResponse({"error": "Must be GET"}, status=400)
-    data_list = request.session.get("flowsheet_data", [])
-    full_result = []
-    for i, row in enumerate(data_list):
-        row_obj = {
-            "rowIndex": i,
-            "flowsheet_id": row["flowsheet_id"],
-            "concept_name": row["concept_name"],
-            "concept_id": row["concept_id"],
-            "frequency": row["frequency"],
-            "percentage": row["percentage"],
-            "source_value": row["source_value"],
-            "domain_id": row["domain_id"],
-            "vocabulary_id": row["vocabulary_id"],
-            "concept_code": row["concept_code"],
-            "concept_class_id": row["concept_class_id"]
-        }
-        full_result.append(row_obj)
-    return JsonResponse({"rows": full_result})
 
-
-@csrf_exempt
-def upload_procedure_view(request):
-    """
-    Left-hand CSV in Tab 3.
-    Columns required (case-insensitive):
-      procedure_id, concept_name, concept_id,
-      order_code, order_description,
-      frequency, percentage,
-      domain_id, vocabulary_id, concept_code, concept_class_id
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "Must be POST"}, status=400)
-    if "csvFile" not in request.FILES:
-        return JsonResponse({"error": "No file uploaded."}, status=400)
-
-    file = request.FILES["csvFile"]
-    try:
-        decoded  = file.read().decode("utf-8", errors="replace")
-        rows     = list(csv.reader(decoded.splitlines()))
-        if not rows:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
-
-        header = [h.strip().lower() for h in rows[0]]
-        required = [
-            "procedure_id", "concept_name", "concept_id",
-            "order_code", "order_description",
-            "frequency", "percentage",
-            "domain_id", "vocabulary_id", "concept_code", "concept_class_id"
+    rows = _load_flow_data()
+    return JsonResponse({
+        "rows": [
+            {
+                "rowIndex"        : i,
+                "flowsheet_id"    : r["observation_id"],      # keep same key for JS
+                "concept_name"    : r["concept_name"],
+                "frequency"       : r["frequency"],
+                "percentage"      : r["percentage"],
+                "value_source_value": r["value_source_value"],
+            }
+            for i, r in enumerate(rows)
         ]
+    })
+
+def _load_proc_data():
+    """Return newest procedure_*.csv as list[dict]."""
+    global _PROC_CACHE, _PROC_MTIME
+    pattern = BASE_DIR / "dictionaries" / "data" / "procedure_*.csv"
+    files   = glob.glob(str(pattern))
+    if not files:
+        return []
+    latest  = max(files, key=os.path.getmtime)
+    mtime   = os.path.getmtime(latest)
+    if _PROC_CACHE is not None and mtime == _PROC_MTIME:
+        return _PROC_CACHE
+
+    required = [
+        "procedure_id", "concept_name", "concept_id",
+        "order_code", "order_description",
+        "frequency", "percentage",
+        "domain_id", "vocabulary_id", "concept_code", "concept_class_id"
+    ]
+    data = []
+    with open(latest, newline="", encoding="utf-8", errors="replace") as fh:
+        rdr  = csv.DictReader(fh)
+        fmap = {h.lower(): h for h in rdr.fieldnames}
         for col in required:
-            if col not in header:
-                return JsonResponse({"error": f"Missing column '{col}'"}, status=400)
+            if col not in fmap:
+                raise ValueError(f"{latest} missing column '{col}'")
+        for row in rdr:
+            rec = {col: (row[fmap[col]] or "null").strip() for col in required}
+            data.append(rec)
 
-        data = []
-        for r in rows[1:]:
-            row = {}
-            for col in required:
-                idx = header.index(col)
-                row[col] = r[idx].strip() if idx < len(r) and r[idx].strip() else "null"
-            data.append(row)
-
-        request.session["procedure_data"] = data
-        return JsonResponse({"ok": True})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
+    _PROC_CACHE, _PROC_MTIME = data, mtime
+    return data
 
 @csrf_exempt
 def get_procedure_data_view(request):
-    """Return session['procedure_data'] as rows with rowIndex (id column is hidden on the client)."""
     if request.method != "GET":
         return JsonResponse({"error": "Must be GET"}, status=400)
-    rows = request.session.get("procedure_data", [])
+
+    rows = _load_proc_data()
     return JsonResponse({
         "rows": [
             {
-                "rowIndex": i,
-                "procedure_id"     : r["procedure_id"],        # hidden but needed for capture
-                "concept_name"     : r["concept_name"],
-                "concept_id"       : r["concept_id"],
-                "order_code"       : r["order_code"],
+                "rowIndex"        : i,
+                "procedure_id"    : r["procedure_id"],      # hidden on client
+                "concept_name"    : r["concept_name"],
+                "concept_id"      : r["concept_id"],
+                "order_code"      : r["order_code"],
                 "order_description": r["order_description"],
-                "frequency"        : r["frequency"],
-                "percentage"       : r["percentage"],
-                "domain_id"        : r["domain_id"],
-                "vocabulary_id"    : r["vocabulary_id"],
-                "concept_code"     : r["concept_code"],
-                "concept_class_id" : r["concept_class_id"],
+                "frequency"       : r["frequency"],
+                "percentage"      : r["percentage"],
+                "domain_id"       : r["domain_id"],
+                "vocabulary_id"   : r["vocabulary_id"],
+                "concept_code"    : r["concept_code"],
+                "concept_class_id": r["concept_class_id"],
             }
             for i, r in enumerate(rows)
         ]
     })
 
+def _load_icd_data():
+    """Return newest icd10_cpt_*.csv as list[dict]."""
+    global _ICD_CACHE, _ICD_MTIME
+    pattern = BASE_DIR / "dictionaries" / "data" / "icd10_cpt_*.csv"
+    files   = glob.glob(str(pattern))
+    if not files:
+        return []
+    latest  = max(files, key=os.path.getmtime)
+    mtime   = os.path.getmtime(latest)
+    if _ICD_CACHE is not None and mtime == _ICD_MTIME:
+        return _ICD_CACHE
 
-@csrf_exempt
-def upload_icd10cpt_view(request):
-    """
-    Right-hand CSV in Tab 3.
-    Columns required (case-insensitive):
-      procedure_id, concept_name, concept_id,
-      code, procedure_code, procedure_description,
-      frequency, percentage,
-      domain_id, vocabulary_id, concept_code, concept_class_id
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "Must be POST"}, status=400)
-    if "csvFile" not in request.FILES:
-        return JsonResponse({"error": "No file uploaded."}, status=400)
-
-    file = request.FILES["csvFile"]
-    try:
-        decoded  = file.read().decode("utf-8", errors="replace")
-        rows     = list(csv.reader(decoded.splitlines()))
-        if not rows:
-            return JsonResponse({"error": "CSV is empty."}, status=400)
-
-        header = [h.strip().lower() for h in rows[0]]
-        required = [
-            "procedure_id", "concept_name", "concept_id",
-            "code", "procedure_code", "procedure_description",
-            "frequency", "percentage",
-            "domain_id", "vocabulary_id", "concept_code", "concept_class_id"
-        ]
+    required = [
+        "procedure_id", "concept_name", "concept_id",
+        "code", "procedure_code", "procedure_description",
+        "frequency", "percentage",
+        "domain_id", "vocabulary_id", "concept_code", "concept_class_id"
+    ]
+    data = []
+    with open(latest, newline="", encoding="utf-8", errors="replace") as fh:
+        rdr  = csv.DictReader(fh)
+        fmap = {h.lower(): h for h in rdr.fieldnames}
         for col in required:
-            if col not in header:
-                return JsonResponse({"error": f"Missing column '{col}'"}, status=400)
+            if col not in fmap:
+                raise ValueError(f"{latest} missing column '{col}'")
+        for row in rdr:
+            rec = {col: (row[fmap[col]] or "null").strip() for col in required}
+            data.append(rec)
 
-        data = []
-        for r in rows[1:]:
-            row = {}
-            for col in required:
-                idx = header.index(col)
-                row[col] = r[idx].strip() if idx < len(r) and r[idx].strip() else "null"
-            data.append(row)
-
-        request.session["icd10cpt_data"] = data
-        return JsonResponse({"ok": True})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
+    _ICD_CACHE, _ICD_MTIME = data, mtime
+    return data
 
 @csrf_exempt
 def get_icd10cpt_data_view(request):
-    """Return session['icd10cpt_data'] as rows with rowIndex (id column hidden on the client)."""
     if request.method != "GET":
         return JsonResponse({"error": "Must be GET"}, status=400)
-    rows = request.session.get("icd10cpt_data", [])
+
+    rows = _load_icd_data()
     return JsonResponse({
         "rows": [
             {
-                "rowIndex"         : i,
-                "procedure_id"     : r["procedure_id"],        # hidden but needed for capture
-                "concept_name"     : r["concept_name"],
-                "concept_id"       : r["concept_id"],
-                "code"             : r["code"],
-                "procedure_code"   : r["procedure_code"],
+                "rowIndex"             : i,
+                "procedure_id"         : r["procedure_id"],  # hidden on client
+                "concept_name"         : r["concept_name"],
+                "concept_id"           : r["concept_id"],
+                "code"                 : r["code"],
+                "procedure_code"       : r["procedure_code"],
                 "procedure_description": r["procedure_description"],
-                "frequency"        : r["frequency"],
-                "percentage"       : r["percentage"],
-                "domain_id"        : r["domain_id"],
-                "vocabulary_id"    : r["vocabulary_id"],
-                "concept_code"     : r["concept_code"],
-                "concept_class_id" : r["concept_class_id"],
+                "frequency"            : r["frequency"],
+                "percentage"           : r["percentage"],
+                "domain_id"            : r["domain_id"],
+                "vocabulary_id"        : r["vocabulary_id"],
+                "concept_code"         : r["concept_code"],
+                "concept_class_id"     : r["concept_class_id"],
             }
             for i, r in enumerate(rows)
         ]
     })
-
 
 @csrf_exempt
 def generate_csv_view(request):

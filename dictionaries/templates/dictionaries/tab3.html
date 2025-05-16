@@ -6,14 +6,15 @@
     <div style="flex:1; text-align:center;"><h4>ICD10 CPT</h4></div>
   </div>
 
-  <h4>Upload &amp; Select Rows</h4>
+  <h4 style="text-align:center;">Select Rows</h4>
 
-  <!-- upload buttons -->
-  <div style="display:flex; gap:12px; margin-bottom:15px;">
-    <button class="btn btn-success" id="uploadProcedureBtn">Upload Procedure</button>
-    <input type="file" id="procedureFileInput"   accept=".csv" style="display:none;">
-    <button class="btn btn-success" id="uploadIcdBtn">Upload ICD10 CPT</button>
-    <input type="file" id="icdFileInput"         accept=".csv" style="display:none;">
+  <div class="flex-row" style="gap:20px; margin-bottom:12px;">
+    <div style="flex:1; text-align:center;">
+      <em id="proc-loader" style="display:none;">Loading procedure data…</em>
+    </div>
+    <div style="flex:1; text-align:center;">
+      <em id="icd-loader"  style="display:none;">Loading icd10cpt data…</em>
+    </div>
   </div>
 
   <!-- side–specific search bars -->
@@ -165,10 +166,8 @@ let procPreviewColumns = []; // { colName, conceptNames[], procedureIds[] }
 let icdPreviewColumns  = []; // { colName, conceptNames[], icd10cptIds[] }
 
 /* ---- DOM ---- */
-const uploadProcedureBtn   = document.getElementById("uploadProcedureBtn");
-const procedureFileInput   = document.getElementById("procedureFileInput");
-const uploadIcdBtn         = document.getElementById("uploadIcdBtn");
-const icdFileInput         = document.getElementById("icdFileInput");
+const procLoader = document.getElementById("proc-loader");
+const icdLoader  = document.getElementById("icd-loader");
 
 const procedureSearchInput = document.getElementById("procedure-search-input");
 const icdSearchInput       = document.getElementById("icd-search-input");
@@ -244,6 +243,56 @@ function makeTag(txt, onRemove){
   return d;
 }
 
+/* ---- auto‑load datasets at startup ---- */
+window.addEventListener("DOMContentLoaded", () => {
+  procLoader.style.display = "inline";
+  icdLoader.style.display  = "inline";
+
+  Promise.all([
+    fetch("/get_procedure_data/").then(r=>r.json()),
+    fetch("/get_icd10cpt_data/").then(r=>r.json())
+  ])
+  .then(([procJson, icdJson])=>{
+    procedureData = procJson.rows || [];
+    icdData       = icdJson.rows  || [];
+    filteredProcData = procedureData.slice();
+    filteredIcdData  = icdData.slice();
+
+    procLoader.style.display = "none";
+    icdLoader.style.display  = "none";
+
+    if (!procedureData.length && !icdData.length){
+      alert("Datasets not found on server.");
+      return;
+    }
+
+    // reveal UI sections & buttons
+    procDropdownSection.style.display       = "block";
+    icdDropdownSection.style.display        = "block";
+    procTableSection.style.display          = "block";
+    icdTableSection.style.display           = "block";
+    procClearTableBtn.style.display         = "inline-block";
+    icdClearTableBtn.style.display          = "inline-block";
+    procCaptureSection.style.display        = "block";
+    icdCaptureSection.style.display         = "block";
+    procPreviewSection.style.display        = "block";
+    icdPreviewSection.style.display         = "block";
+    procGenerateCsvBtn.style.display        = "inline-block";
+    icdGenerateCsvBtn.style.display         = "inline-block";
+    procUpdateTableBtn.style.display        = "inline-block";
+
+    showWrappers3();
+    renderProcDropdown("");
+    renderIcdDropdown("");
+    renderProcTable();
+    renderIcdTable();
+  })
+  .catch(err=>{
+    procLoader.textContent = icdLoader.textContent = "Load error";
+    console.error(err);
+  });
+});
+
 /* ------------------------------------------------------------
    per‑side search bars → filter own dropdown only
 ------------------------------------------------------------ */
@@ -253,70 +302,6 @@ procedureSearchInput.addEventListener("input", () => {
 icdSearchInput.addEventListener("input", () => {
   renderIcdDropdown(icdSearchInput.value.toLowerCase());
 });
-
-/* ------------ upload Procedure ------------ */
-uploadProcedureBtn.addEventListener("click", ()=>procedureFileInput.click());
-procedureFileInput.addEventListener("change", e=>{
-  const f=e.target.files[0]; if(!f) return;
-  const fd=new FormData(); fd.append("csvFile",f);
-  fetch("/upload_procedure/",{method:"POST",body:fd})
-    .then(r=>r.json()).then(j=>{ if(j.error) throw j.error; return fetch("/get_procedure_data/"); })
-    .then(r=>r.json()).then(j=>{
-      if(j.error) throw j.error;
-      procedureData=j.rows||[]; filteredProcData=[...procedureData];
-
-      procDropdownSection.style.display="block";
-      procTagContainer.style.display="none";
-      procTableSection.style.display="block";
-      procClearTableBtn.style.display="inline-block";
-      procCaptureSection.style.display="block";
-      procPreviewSection.style.display="block";
-      procGenerateCsvBtn.style.display="inline-block";
-
-      procDropdownPanel.style.display="block";
-      showWrappers3();
-      renderProcDropdown("");
-      renderProcTags();
-      renderProcTable();
-      checkAnyUploads3();
-    })
-    .catch(err=>alert("Procedure upload error: "+err));
-});
-
-/* ------------ upload ICD ------------ */
-uploadIcdBtn.addEventListener("click", ()=>icdFileInput.click());
-icdFileInput.addEventListener("change", e=>{
-  const f=e.target.files[0]; if(!f) return;
-  const fd=new FormData(); fd.append("csvFile",f);
-  fetch("/upload_icd10cpt/",{method:"POST",body:fd})
-    .then(r=>r.json()).then(j=>{ if(j.error) throw j.error; return fetch("/get_icd10cpt_data/"); })
-    .then(r=>r.json()).then(j=>{
-      if(j.error) throw j.error;
-      icdData=j.rows||[]; filteredIcdData=[...icdData];
-
-      icdDropdownSection.style.display="block";
-      icdTagContainer.style.display="none";
-      icdTableSection.style.display="block";
-      icdClearTableBtn.style.display="inline-block";
-      icdCaptureSection.style.display="block";
-      icdPreviewSection.style.display="block";
-      icdGenerateCsvBtn.style.display="inline-block";
-
-      icdDropdownPanel.style.display="block";
-      showWrappers3();
-      renderIcdDropdown("");
-      renderIcdTags();
-      renderIcdTable();
-      checkAnyUploads3();
-    })
-    .catch(err=>alert("ICD upload error: "+err));
-});
-
-/* ------------ shared helpers ------------ */
-function checkAnyUploads3(){
-  procUpdateTableBtn.style.display =
-    (procedureData.length || icdData.length) ? "inline-block" : "none";
-}
 
 function renderProcDropdown(searchVal){
   if (!procedureData.length) return;

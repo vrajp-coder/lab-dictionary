@@ -5,10 +5,10 @@
     <div class="flex-row">
       <!-- LEFT PANEL -->
       <div class="left-panel">
-        <h4>Upload &amp; Select Rows</h4>
-        <div style="display:flex; gap:12px; margin-bottom:15px;">
-          <button class="btn btn-success" id="uploadBtn">Upload CSV</button>
-          <input type="file" id="fileInput" accept=".csv" style="display:none;">
+        <h4>Select Rows</h4>
+
+        <div id="med-loader" style="margin:10px 0; display:none; font-style:italic;">
+          Loading medication data&hellip;
         </div>
 
         <div class="search-container">
@@ -135,8 +135,6 @@
     //-----------------------------------------------------------
     // DOM references
     //-----------------------------------------------------------
-    const fileInput         = document.getElementById("fileInput");
-    const uploadBtn         = document.getElementById("uploadBtn");
     const searchInput       = document.getElementById("search-input");
     const dropdownPanel     = document.getElementById("dropdown-panel");
     const pharmaPanel       = document.getElementById("pharma-panel");
@@ -155,17 +153,7 @@
     const updateTableBtn    = document.getElementById("updateTableBtn");
     const clearTableBtn     = document.getElementById("clearTableBtn");
 
-    //-----------------------------------------------------------
-    // INITIAL PAGE LOAD
-    //-----------------------------------------------------------
-    window.addEventListener("DOMContentLoaded", () => {
-      // Hide everything until a CSV is uploaded
-      showDataUI(false);
-    });
-
-    // showDataUI => toggles the dropdown panel, the table, the update/clear table buttons, etc.
     function showDataUI(show){
-      // .dropdown-panel => only show if `show===true`
       dropdownPanel.style.display  = show ? "block" : "none";
       pharmaPanel.style.display    = show ? "block" : "none";
       tagContainer.style.display   = show ? "flex"  : "none";
@@ -175,53 +163,32 @@
     }
 
     //-----------------------------------------------------------
-    // UPLOAD CSV
+    // INITIAL PAGE LOAD – fetch dataset from server
     //-----------------------------------------------------------
-    uploadBtn.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", e => {
-      const file = e.target.files[0];
-      if(!file) return;
-      let formData = new FormData();
-      formData.append("csvFile", file);
+    window.addEventListener("DOMContentLoaded", () => {
+      const loader = document.getElementById("med-loader");
+      loader.style.display = "block";
 
-      fetch("/upload_medication/", {
-        method: "POST",
-        body: formData
-      })
-      .then(r => r.json())
-      .then(resp => {
-        if(resp.error){
-          alert("Upload error: " + resp.error);
-          return;
-        }
-        // success => fetch the data
-        return fetch("/get_medication_data/");
-      })
-      .then(r => r.json())
-      .then(resp2 => {
-        if(resp2 && resp2.error){
-          console.warn("No data or error:", resp2.error);
-          allData = [];
-        } else if(resp2) {
-          allData = resp2.rows || [];
-        }
-        if(allData.length === 0){
-          alert("No data found in CSV.");
-        } else {
-          // Clear all selection sets
-          clearSelectionsCompletely();
-          // Now show the UI
+      fetch("/get_medication_data/")
+        .then(res => res.json())
+        .then(json => {
+          loader.style.display = "none";
+          allData = json.rows || [];
+          if (!allData.length){
+            alert("Medication dataset not found on server.");
+            return;
+          }
           filteredData = allData.slice();
-          showDataUI(true);
+          showDataUI(true);              // reveal dropdown, table, etc.
           renderDropdown();
           renderTags();
           renderPharmaPanel();
           renderTable();
-        }
-      })
-      .catch(err => {
-        alert("Upload failed: " + err);
-      });
+        })
+        .catch(err => {
+          loader.textContent = "Error loading data.";
+          console.error(err);
+        });
     });
 
     //-----------------------------------------------------------
