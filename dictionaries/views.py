@@ -2,9 +2,12 @@
 import csv
 import io
 import os, glob, pathlib
+import json, datetime
 from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 
@@ -373,6 +376,109 @@ def generate_csv_view(request):
     response["Content-Disposition"] = f'attachment; filename="{file_name}"'
     return response
 
+@csrf_exempt
+def submit_data_view(request):
+    """
+    Expects JSON:
+    {
+      firstName: "...",
+      lastName : "...",
+      email    : "...",
+      irb      : "...",
+      previews : {           # optional - any combo present
+        tab1: [ {colName, medicationIds:[...] }, ... ],
+        tab2_lab : [ {colName, labIds:[...] }, ... ],
+        tab2_flow: [ {colName, flowsheetIds:[...] }, ... ],
+        tab3_proc: [ {colName, procedureIds:[...] }, ... ],
+        tab3_icd : [ {colName, icd10cptIds:[...] }, ... ]
+      }
+    }
+    Generates up to 5 CSVs via generate_csv_view() helper and emails them.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Must be POST"}, status=400)
+
+    payload = json.loads(request.body or "{}")
+    first = payload.get("firstName", "").strip()
+    last  = payload.get("lastName", "").strip()
+    user_email = payload.get("email", "").strip()
+    irb  = payload.get("irb", "").strip()
+    previews = payload.get("previews", {})
+
+    if not (first and last and user_email and irb):
+        return JsonResponse({"error": "Missing required fields"}, status=400)
+
+    # --- Helper to call generate_csv_view internally -------------------------
+    def build_csv(preview_list, ftype, prefix):
+        """
+        Return (bytes, filename) or None.
+        """
+        if not preview_list:
+            return None
+        body = {
+            "columns": preview_list,
+            "fileType": ftype,
+            "fileName": f"{prefix}_{datetime.datetime.now():%Y%m%d_%H%M%S}.csv"
+        }
+        fake_req = HttpRequest()
+        fake_req.method = "POST"
+        fake_req._body  = json.dumps(body).encode()
+        # minimal META so generate_csv_view doesn’t crash
+        fake_req.META = {}
+        resp = generate_csv_view(fake_req)
+        return resp.content, body["fileName"]
+
+    attachments = []
+    mapping = [
+        ("tab1",       "med",       "MED"),
+        ("tab2_lab",   "lab",       "LAB"),
+        ("tab2_flow",  "flowsheet", "FLOWSHEET"),
+        ("tab3_proc",  "procedure", "PROCEDURE"),
+        ("tab3_icd",   "icd10cpt",  "PROCEDURE_CPT"),
+    ]
+    for key, ftype, prefix in mapping:
+        csv_bytes = build_csv(previews.get(key, []), ftype, prefix)
+        if csv_bytes:
+            attachments.append(csv_bytes)
+
+    # -------------------- email to user -------------------------------------
+    subj_user = "Confirmation: Data Request Received - CTRA Lab"
+    msg_user  = (
+        f"Dear {first} {last},\n\n"
+        f"Thank you for submitting a data request to the CTRA Lab!\n"
+        f"We have received your request with the following IRB number: {irb}.\n"
+        f"Our team will reach out with a follow-up as soon as possible.\n\n"
+        "Sincerely,\nThe CTRA Team"
+    )
+    EmailMessage(
+        subject=subj_user,
+        body=msg_user,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user_email]
+    ).send(fail_silently=False)
+
+    # -------------------- email to team -------------------------------------
+    subj_team = f"Data Request from IRB #: {irb}"
+    msg_team  = (
+        "A data request has been made by the user below:\n\n"
+        f"Name : {first} {last}\n"
+        f"Email: {user_email}\n"
+        f"IRB #: {irb}\n"
+    )
+    email_team = EmailMessage(
+        subject=subj_team,
+        body=msg_team,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[
+            "vraj.pandya@yale.edu",
+            "bashar.kadhim@yale.edu"
+            ]
+    )
+    for content, fname in attachments:
+        email_team.attach(fname, content, "text/csv")
+    email_team.send(fail_silently=False)
+
+    return JsonResponse({"ok": True})
 
 @csrf_exempt
 def new_session_view(request):

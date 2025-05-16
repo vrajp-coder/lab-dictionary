@@ -1,0 +1,72 @@
+<!-- Data Submission tab -->
+<div class="page-container" style="max-width:600px;">
+  <h4 style="text-align:center;">Data Submission</h4>
+
+  <form id="submit-form" class="needs-validation" novalidate>
+    <div class="mb-3">
+      <label class="form-label">First Name</label>
+      <input type="text" class="form-control" id="first-name" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Last Name</label>
+      <input type="text" class="form-control" id="last-name" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control" id="email" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">IRB Number</label>
+      <input type="text" class="form-control" id="irb" required>
+    </div>
+
+    <button class="btn btn-success w-100" type="submit">Submit</button>
+    <div id="submit-msg" style="margin-top:10px;"></div>
+  </form>
+</div>
+
+<script>
+/* gather previews from other tabs (they’re global arrays) */
+function collectPreviews(){
+  return {
+    tab1      : (window.previewColumns      || []).slice(),
+    tab2_lab  : (window.labPreviewColumns   || []).slice(),
+    tab2_flow : (window.flowsheetPreviewColumns || []).slice(),
+    tab3_proc : (window.procPreviewColumns  || []).slice(),
+    tab3_icd  : (window.icdPreviewColumns   || []).slice()
+  };
+}
+
+document.getElementById("submit-form").addEventListener("submit", e=>{
+  e.preventDefault();
+  const msg = document.getElementById("submit-msg");
+  msg.textContent = "Submitting…";
+
+  const body = {
+    firstName : document.getElementById("first-name").value.trim(),
+    lastName  : document.getElementById("last-name").value.trim(),
+    email     : document.getElementById("email").value.trim(),
+    irb       : document.getElementById("irb").value.trim(),
+    previews  : collectPreviews()
+  };
+
+  fetch("/submit_data/", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  })
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.ok){
+      msg.innerHTML = "<span style='color:#4caf50;'>Request submitted! Check your email for confirmation.</span>";
+      document.getElementById("submit-form").reset();
+    }else{
+      msg.innerHTML = "<span style='color:#dc3545;'>Error: "+(j.error||"unknown")+"</span>";
+    }
+  })
+  .catch(err=>{
+    console.error(err);
+    msg.innerHTML = "<span style='color:#dc3545;'>Submit failed.</span>";
+  });
+});
+</script>

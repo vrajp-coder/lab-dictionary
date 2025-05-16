@@ -7,6 +7,7 @@ from .views import (
     get_flowsheet_data_view,
     get_procedure_data_view,
     get_icd10cpt_data_view,
+    submit_data_view,
     generate_csv_view,
     new_session_view
 )
@@ -24,6 +25,9 @@ urlpatterns = [
     # Tab #3 (Procedures)
     path('get_procedure_data/', get_procedure_data_view, name='get_procedure_data'),
     path('get_icd10cpt_data/',  get_icd10cpt_data_view, name='get_icd10cpt_data'),
+
+    # Tab #4 (Data Submission)
+    path("submit_data/", submit_data_view, name="submit_data"),
 
     # Shared
     path('generate_csv/', generate_csv_view, name='generate_csv'),

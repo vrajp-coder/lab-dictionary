@@ -159,6 +159,9 @@
     <li class="nav-item">
       <a class="nav-link" data-tab="tab3" href="#">Procedures</a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link" data-tab="tab4" href="#">Data Submission</a>
+    </li>
   </ul>
 
   <!-- TAB CONTENTS -->
@@ -175,6 +178,10 @@
     {% include "dictionaries/tab3.html" %}
   </div>
 
+  <div id="tab4Content" style="display:none;">
+    {% include "dictionaries/tab4.html" %}
+  </div>
+
   <!-- Shared tab-switching script -->
   <script>
     document.querySelectorAll(".nav-link[data-tab]").forEach(link => {
@@ -183,7 +190,7 @@
         // remove active from all nav links
         document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
         // hide all tab contents
-        document.querySelectorAll("#tab1Content, #tab2Content, #tab3Content").forEach(div => {
+        document.querySelectorAll("#tab1Content, #tab2Content, #tab3Content, #tab4Content").forEach(div => {
           div.style.display="none";
         });
         // set this link to active

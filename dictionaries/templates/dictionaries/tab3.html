@@ -162,8 +162,8 @@ let icdSelectedConcepts  = new Set(),  icdDropdownOrder  = [];
 
 let procSelectedRows = new Set(),      icdSelectedRows   = new Set();
 
-let procPreviewColumns = []; // { colName, conceptNames[], procedureIds[] }
-let icdPreviewColumns  = []; // { colName, conceptNames[], icd10cptIds[] }
+var procPreviewColumns = []; // { colName, conceptNames[], procedureIds[] }
+var icdPreviewColumns  = []; // { colName, conceptNames[], icd10cptIds[] }
 
 /* ---- DOM ---- */
 const procLoader = document.getElementById("proc-loader");
