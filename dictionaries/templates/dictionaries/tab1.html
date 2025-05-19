@@ -78,14 +78,6 @@
             Next Column
           </button>
         </div>
-
-        <!-- Removed the Step 2 label and the file input; we’ll generate the name automatically -->
-        <div style="text-align:center; margin-top:15px;">
-          <button class="btn btn-success" id="generateNewCsvBtn">
-            Generate New CSV File
-          </button>
-        </div>
-
       </div><!-- end left-panel -->
 
       <!-- RIGHT PANEL => CSV Preview -->
@@ -147,7 +139,6 @@
     const captureColumnBtn  = document.getElementById("capture-column-btn");
     const nextColumnBtn     = document.getElementById("next-column-btn");
     const previewBox        = document.getElementById("csv-preview");
-    const generateNewCsvBtn = document.getElementById("generateNewCsvBtn");
     const newSessionBtn     = document.getElementById("newSessionBtn");
 
     const updateTableBtn    = document.getElementById("updateTableBtn");
@@ -647,53 +638,6 @@
         });
       });
     }
-
-    //-----------------------------------------------------------
-    // GENERATE NEW CSV => auto-build a filename: MED_MM_DD_YYYY_HH_MM_SS.csv
-    //-----------------------------------------------------------
-    generateNewCsvBtn.addEventListener("click", () => {
-      if(previewColumns.length === 0){
-        alert("No columns captured yet.");
-        return;
-      }
-      // Build the "MED_datetime" name
-      const now = new Date();
-      const mm = String(now.getMonth()+1).padStart(2,'0');
-      const dd = String(now.getDate()).padStart(2,'0');
-      const yyyy = now.getFullYear();
-      const hh = String(now.getHours()).padStart(2,'0');
-      const min = String(now.getMinutes()).padStart(2,'0');
-      const ss = String(now.getSeconds()).padStart(2,'0');
-
-      const fileName = `MED_${mm}_${dd}_${yyyy}_${hh}_${min}_${ss}.csv`;
-
-      // Post to server
-      fetch("/generate_csv/", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          columns: previewColumns,
-          fileName: fileName
-        })
-      })
-      .then(resp => {
-        if(!resp.ok) throw new Error("CSV generation failed.");
-        return resp.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName; // The user can still rename if they want
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      })
-      .catch(err => {
-        alert("Generate CSV error: " + err);
-      });
-    });
 
     //-----------------------------------------------------------
     // NEW SESSION => flush session data in backend, then reload

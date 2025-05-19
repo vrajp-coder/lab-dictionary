@@ -58,8 +58,10 @@ document.getElementById("submit-form").addEventListener("submit", e=>{
   .then(r=>r.json())
   .then(j=>{
     if(j.ok){
-      msg.innerHTML = "<span style='color:#4caf50;'>Request submitted! Check your email for confirmation.</span>";
-      document.getElementById("submit-form").reset();
+      msg.textContent  = "Request submitted! Check your email for confirmation.";
+      msg.textContent += " (If you don't see it, please check your spam folder "
+                             + "for a message from bashar.kadhim@rxinformatix.com.)";
+      msg.style.color  = "#4caf50";
     }else{
       msg.innerHTML = "<span style='color:#dc3545;'>Error: "+(j.error||"unknown")+"</span>";
     }

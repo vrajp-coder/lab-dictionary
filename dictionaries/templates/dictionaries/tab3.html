@@ -126,9 +126,6 @@
       <div id="procedure-preview-section" style="display:none;">
         <h4>CSV Preview (Procedure)</h4>
         <div class="preview-box" id="procedure-preview-box"><em>No columns captured yet.</em></div>
-        <div style="text-align:center; margin-top:10px;">
-          <button class="btn btn-success" id="procedureGenerateCsvBtn" style="display:none;">Generate CSV</button>
-        </div>
       </div>
     </div>
 
@@ -137,9 +134,6 @@
       <div id="icd-preview-section" style="display:none;">
         <h4>CSV Preview (ICD10 CPT)</h4>
         <div class="preview-box" id="icd-preview-box"><em>No columns captured yet.</em></div>
-        <div style="text-align:center; margin-top:10px;">
-          <button class="btn btn-success" id="icdGenerateCsvBtn" style="display:none;">Generate CSV</button>
-        </div>
       </div>
     </div>
   </div>
@@ -213,12 +207,10 @@ const icdNextColumnBtn  = document.getElementById("icdNextColumnBtn");
 /* Procedure preview */
 const procPreviewSection = document.getElementById("procedure-preview-section");
 const procPreviewBox     = document.getElementById("procedure-preview-box");
-const procGenerateCsvBtn = document.getElementById("procedureGenerateCsvBtn");
 
 /* ICD preview */
 const icdPreviewSection = document.getElementById("icd-preview-section");
 const icdPreviewBox     = document.getElementById("icd-preview-box");
-const icdGenerateCsvBtn = document.getElementById("icdGenerateCsvBtn");
 
 /* New session */
 const procNewSessionBtn = document.getElementById("procNewSessionBtn");
@@ -277,8 +269,6 @@ window.addEventListener("DOMContentLoaded", () => {
     icdCaptureSection.style.display         = "block";
     procPreviewSection.style.display        = "block";
     icdPreviewSection.style.display         = "block";
-    procGenerateCsvBtn.style.display        = "inline-block";
-    icdGenerateCsvBtn.style.display         = "inline-block";
     procUpdateTableBtn.style.display        = "inline-block";
 
     showWrappers3();
@@ -630,44 +620,6 @@ function renderIcdPreview(){
     renderIcdTags(); renderIcdTable();
   });
 }
-
-/* ----------------------------------------------------------------
-   GENERATE CSV buttons
----------------------------------------------------------------- */
-function timestamp(){ const n=new Date();
-  return `${String(n.getMonth()+1).padStart(2,'0')}_${String(n.getDate()).padStart(2,'0')}_${n.getFullYear()}_${String(n.getHours()).padStart(2,'0')}_${String(n.getMinutes()).padStart(2,'0')}_${String(n.getSeconds()).padStart(2,'0')}`; }
-
-procGenerateCsvBtn.addEventListener("click", ()=>{
-  if(!procPreviewColumns.length){ alert("No columns captured for Procedure."); return; }
-  const fileName=`PROCEDURE_${timestamp()}.csv`;
-  fetch("/generate_csv/",{
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ columns:procPreviewColumns, fileType:"procedure", fileName })
-  })
-  .then(r=>{ if(!r.ok) throw new Error("CSV generation failed"); return r.blob(); })
-  .then(blob=>{
-    const url=URL.createObjectURL(blob); const a=document.createElement("a");
-    a.href=url; a.download=fileName; document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  })
-  .catch(err=>alert("Generate Procedure CSV error: "+err));
-});
-
-icdGenerateCsvBtn.addEventListener("click", ()=>{
-  if(!icdPreviewColumns.length){ alert("No columns captured for ICD10 CPT."); return; }
-  const fileName=`PROCEDURE_CPT_${timestamp()}.csv`;
-  fetch("/generate_csv/",{
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ columns:icdPreviewColumns, fileType:"icd10cpt", fileName })
-  })
-  .then(r=>{ if(!r.ok) throw new Error("CSV generation failed"); return r.blob(); })
-  .then(blob=>{
-    const url=URL.createObjectURL(blob); const a=document.createElement("a");
-    a.href=url; a.download=fileName; document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  })
-  .catch(err=>alert("Generate ICD10 CSV error: "+err));
-});
 
 /* ----------------------------------------------------------------
    NEW SESSION

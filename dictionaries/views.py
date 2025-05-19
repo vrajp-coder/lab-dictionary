@@ -448,6 +448,8 @@ def submit_data_view(request):
         f"Thank you for submitting a data request to the CTRA Lab!\n"
         f"We have received your request with the following IRB number: {irb}.\n"
         f"Our team will reach out with a follow-up as soon as possible.\n\n"
+        "Please do not reply - this inbox is not monitored regularly.\n"
+        "If you have questions, contact bashar.kadhim@yale.edu.\n\n"
         "Sincerely,\nThe CTRA Team"
     )
     EmailMessage(

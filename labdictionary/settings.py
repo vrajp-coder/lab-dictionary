@@ -128,7 +128,7 @@ EMAIL_BACKEND = config(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.console.EmailBackend"
 )
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="vraj.pandya@yale.edu")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="bashar.kadhim@rxinformatix.com")
 
 if EMAIL_BACKEND.endswith("smtp.EmailBackend"):
     EMAIL_HOST = config("EMAIL_HOST")

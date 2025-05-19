@@ -121,9 +121,6 @@
       <div id="lab-preview-section" style="display:none;">
         <h4>CSV Preview (Lab)</h4>
         <div class="preview-box" id="lab-preview-box"><em>No columns captured yet.</em></div>
-        <div style="text-align:center; margin-top:10px;">
-          <button class="btn btn-success" id="labGenerateCsvBtn" style="display:none;">Generate CSV</button>
-        </div>
       </div>
     </div>
 
@@ -132,9 +129,6 @@
       <div id="flowsheet-preview-section" style="display:none;">
         <h4>CSV Preview (Flowsheet)</h4>
         <div class="preview-box" id="flowsheet-preview-box"><em>No columns captured yet.</em></div>
-        <div style="text-align:center; margin-top:10px;">
-          <button class="btn btn-success" id="flowsheetGenerateCsvBtn" style="display:none;">Generate CSV</button>
-        </div>
       </div>
     </div>
   </div>
@@ -217,12 +211,10 @@
   // Lab preview
   const labPreviewSection = document.getElementById("lab-preview-section");
   const labPreviewBox     = document.getElementById("lab-preview-box");
-  const labGenerateCsvBtn = document.getElementById("labGenerateCsvBtn");
 
   // Flowsheet preview
   const flowsheetPreviewSection = document.getElementById("flowsheet-preview-section");
   const flowsheetPreviewBox     = document.getElementById("flowsheet-preview-box");
-  const flowsheetGenerateCsvBtn = document.getElementById("flowsheetGenerateCsvBtn");
 
   // New session
   const labsNewSessionBtn = document.getElementById("labsNewSessionBtn");
@@ -282,8 +274,6 @@
       flowsheetCaptureSection.style.display  = "block";
       labPreviewSection.style.display        = "block";
       flowsheetPreviewSection.style.display  = "block";
-      labGenerateCsvBtn.style.display        = "inline-block";
-      flowsheetGenerateCsvBtn.style.display  = "inline-block";
       labsUpdateTableBtn.style.display       = "inline-block";
 
       showWrappers();
@@ -700,87 +690,6 @@
       renderFlowsheetTable();
     });
   }
-
-  //-------------------------------------------------------
-  // Generate CSV => "LAB_mm_dd_yyyy_hh_mm_ss.csv" or "FLOWSHEET_..."
-  //-------------------------------------------------------
-  labGenerateCsvBtn.addEventListener("click", ()=>{
-    if(labPreviewColumns.length===0){
-      alert("No columns captured for Lab.");
-      return;
-    }
-    const now = new Date();
-    const mm = String(now.getMonth()+1).padStart(2,'0');
-    const dd = String(now.getDate()).padStart(2,'0');
-    const yyyy = now.getFullYear();
-    const hh = String(now.getHours()).padStart(2,'0');
-    const mn = String(now.getMinutes()).padStart(2,'0');
-    const ss = String(now.getSeconds()).padStart(2,'0');
-    const fileName = `LAB_${mm}_${dd}_${yyyy}_${hh}_${mn}_${ss}.csv`;
-
-    fetch("/generate_csv/", {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        columns: labPreviewColumns, // each => { colName, conceptNames, labIds }
-        fileType: "lab",
-        fileName: fileName
-      })
-    })
-    .then(resp=>{
-      if(!resp.ok) throw new Error("CSV generation failed.");
-      return resp.blob();
-    })
-    .then(blob=>{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url; a.download=fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    })
-    .catch(err=> alert("Generate Lab CSV error:"+err));
-  });
-
-  flowsheetGenerateCsvBtn.addEventListener("click", ()=>{
-    if(flowsheetPreviewColumns.length===0){
-      alert("No columns captured for Flowsheet.");
-      return;
-    }
-    const now = new Date();
-    const mm = String(now.getMonth()+1).padStart(2,'0');
-    const dd = String(now.getDate()).padStart(2,'0');
-    const yyyy = now.getFullYear();
-    const hh = String(now.getHours()).padStart(2,'0');
-    const mn = String(now.getMinutes()).padStart(2,'0');
-    const ss = String(now.getSeconds()).padStart(2,'0');
-    const fileName = `FLOWSHEET_${mm}_${dd}_${yyyy}_${hh}_${mn}_${ss}.csv`;
-
-    fetch("/generate_csv/", {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        columns: flowsheetPreviewColumns,
-        fileType: "flowsheet",
-        fileName: fileName
-      })
-    })
-    .then(resp=>{
-      if(!resp.ok) throw new Error("CSV generation failed.");
-      return resp.blob();
-    })
-    .then(blob=>{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url; a.download=fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    })
-    .catch(err=> alert("Generate Flowsheet CSV error:"+err));
-  });
 
   //-------------------------------------------------------
   // NEW SESSION
