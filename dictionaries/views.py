@@ -11,6 +11,8 @@ from django.conf import settings
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 
+_DEP_CACHE, _DEP_MTIME = None, 0      # department_type.csv
+_ENC_CACHE, _ENC_MTIME = None, 0      # encounter_type.csv
 _MED_CACHE,  _MED_MTIME  = None, 0      # drug_exposure_*.csv
 _LAB_CACHE,  _LAB_MTIME  = None, 0      # measurement_*.csv
 _FLOW_CACHE, _FLOW_MTIME = None, 0      # observation_*.csv
@@ -20,6 +22,40 @@ _ICD_CACHE,  _ICD_MTIME  = None, 0      # icd10_cpt_*.csv
 def index_view(request):
     # Renders the base.html, which includes tab1, tab2, tab3
     return render(request, "dictionaries/base.html")
+
+def _load_department_choices():
+    global _DEP_CACHE, _DEP_MTIME
+    pattern = BASE_DIR / "dictionaries" / "data" / "department_type.csv"
+    if not pattern.exists(): return []
+    mtime = pattern.stat().st_mtime
+    if _DEP_CACHE is not None and mtime == _DEP_MTIME:
+        return _DEP_CACHE
+    with open(pattern, newline="", encoding="utf-8") as fh:
+        rdr = csv.DictReader(fh)
+        col = [r["department_type"].strip() for r in rdr]
+    _DEP_CACHE, _DEP_MTIME = col, mtime
+    return col
+
+@csrf_exempt
+def get_department_choices_view(request):
+    return JsonResponse({"choices": _load_department_choices()})
+
+def _load_encounter_choices():
+    global _ENC_CACHE, _ENC_MTIME
+    pattern = BASE_DIR / "dictionaries" / "data" / "encounter_type.csv"
+    if not pattern.exists(): return []
+    mtime = pattern.stat().st_mtime
+    if _ENC_CACHE is not None and mtime == _ENC_MTIME:
+        return _ENC_CACHE
+    with open(pattern, newline="", encoding="utf-8") as fh:
+        rdr = csv.DictReader(fh)
+        col = [r["encounter_type"].strip() for r in rdr]
+    _ENC_CACHE, _ENC_MTIME = col, mtime
+    return col
+
+@csrf_exempt
+def get_encounter_choices_view(request):
+    return JsonResponse({"choices": _load_encounter_choices()})
 
 def _load_med_data():
     """
@@ -407,6 +443,29 @@ def submit_data_view(request):
 
     if not (first and last and user_email and irb):
         return JsonResponse({"error": "Missing required fields"}, status=400)
+    
+    # -----------------------------------------------------------
+    # 1)  settings.csv (from the new Settings tab, if present)
+    # -----------------------------------------------------------
+    attachments = []                 # <-- declare BEFORE use
+    settings_blob = previews.get("settings")   # may be None
+    def build_settings_csv(b):
+        if not b: return None
+        rows = [
+            ["age_min",          b.get("age_min","")],
+            ["age_max",          b.get("age_max","")],
+            ["department_type", *b.get("department_types", [])],
+            ["encounter_type",  *b.get("encounter_types", [])],
+            ["visit_start_date", b.get("visit_start_date","")],
+            ["visit_end_date",   b.get("visit_end_date","")],
+            ["detailed_mode",    "TRUE" if b.get("detailed_mode") else "FALSE"],
+        ]
+        sio = io.StringIO(); csv.writer(sio).writerows(rows)
+        return sio.getvalue().encode(), "omop_settings.csv"
+
+    if settings_blob:
+        att = build_settings_csv(settings_blob)
+        if att: attachments.append(att)
 
     # --- Helper to call generate_csv_view internally -------------------------
     def build_csv(preview_list, ftype, prefix):
@@ -428,7 +487,6 @@ def submit_data_view(request):
         resp = generate_csv_view(fake_req)
         return resp.content, body["fileName"]
 
-    attachments = []
     mapping = [
         ("tab1",       "med",       "MED"),
         ("tab2_lab",   "lab",       "LAB"),

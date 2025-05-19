@@ -2,6 +2,8 @@
 from django.urls import path
 from .views import (
     index_view,
+    get_department_choices_view,
+    get_encounter_choices_view,
     get_medication_data_view,
     get_lab_data_view,
     get_flowsheet_data_view,
@@ -14,6 +16,10 @@ from .views import (
 
 urlpatterns = [
     path('', index_view, name='index'),
+
+    # Tab #0 (Settings)
+    path("get_department_choices/", get_department_choices_view, name="get_department_choices"),
+    path("get_encounter_choices/",  get_encounter_choices_view,  name="get_encounter_choices"),
 
     # Tab #1 (Medications)
     path('get_medication_data/', get_medication_data_view, name='get_medication_data'),

@@ -151,7 +151,10 @@
   <!-- Nav Tabs -->
   <ul class="nav nav-tabs mb-3" style="justify-content:center;">
     <li class="nav-item">
-      <a class="nav-link active" data-tab="tab1" href="#">Medications</a>
+      <a class="nav-link active" data-tab="tab0" href="#">Settings</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-tab="tab1" href="#">Medications</a>
     </li>
     <li class="nav-item">
       <a class="nav-link" data-tab="tab2" href="#">Labs</a>
@@ -166,7 +169,11 @@
 
   <!-- TAB CONTENTS -->
   <!-- We include partial templates for each tab. -->
-  <div id="tab1Content" style="display:block;">
+  <div id="tab0Content" style="display:block;">
+    {% include "dictionaries/tab0.html" %}
+  </div>
+
+  <div id="tab1Content" style="display:none;">
     {% include "dictionaries/tab1.html" %}
   </div>
 
@@ -190,7 +197,7 @@
         // remove active from all nav links
         document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
         // hide all tab contents
-        document.querySelectorAll("#tab1Content, #tab2Content, #tab3Content, #tab4Content").forEach(div => {
+        document.querySelectorAll("#tab0Content, #tab1Content, #tab2Content, #tab3Content, #tab4Content").forEach(div => {
           div.style.display="none";
         });
         // set this link to active
