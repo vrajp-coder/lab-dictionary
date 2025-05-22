@@ -2,23 +2,32 @@
 <div class="page-container" style="max-width:900px;">
   <h4 style="text-align:center;">Settings</h4>
 
-  <!-- dropdown row -->
-  <div class="flex-row" style="gap:40px;">
-    <div style="flex:1;">
-      <label><strong>Select department type:</strong></label>
-      <div class="search-container">
-        <input type="text" id="dept-search" class="form-control" placeholder="Search…">
-      </div>
-      <div class="dropdown-panel" id="dept-panel"></div>
+  <!-- ========== Department table ========== -->
+  <label><strong>Select department type:</strong></label>
+  <div class="search-container">
+    <input type="text" id="dept-search" class="form-control" placeholder="Search department…">
+    <div style="font-size:0.9rem; margin-top:4px;">
+      <a href="#" id="dept-select-all">Select&nbsp;All</a>
     </div>
+  </div>
+  <div class="table-container" style="display:block;">
+    <table class="csv-table" id="dept-table">
+      <thead><tr><th class="select-col"></th><th>Department</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <button class="btn btn-danger" id="dept-clear" style="margin-top:6px;">Clear Table</button>
 
-    <div style="flex:1;">
-      <label><strong>Select encounter type:</strong></label>
-      <div class="search-container">
-        <input type="text" id="enc-search" class="form-control" placeholder="Search…">
-      </div>
-      <div class="dropdown-panel" id="enc-panel"></div>
+  <!-- ========== Encounter table ========== -->
+  <div style="margin-top:25px;">
+    <label><strong>Select encounter type:</strong></label>
+    <div class="table-container" style="display:block;">
+      <table class="csv-table" id="enc-table">
+        <thead><tr><th class="select-col"></th><th>Encounter&nbsp;type</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
+    <button class="btn btn-danger" id="enc-clear" style="margin-top:6px;">Clear Table</button>
   </div>
 
   <!-- numeric + date inputs -->
@@ -59,68 +68,82 @@
 </div>
 
 <script>
-/* --- fetch choices --- */
-let deptChoices = [], encChoices = [];
-let deptSel = new Set(), encSel = new Set();
+/* ---------------- data & state ---------------- */
+let deptRows=[], encRows=[];
+const deptSel = new Set();     // store IDs
+const encSel  = new Set();
 
-const deptPanel = document.getElementById("dept-panel");
-const encPanel  = document.getElementById("enc-panel");
+const deptBody = document.querySelector("#dept-table tbody");
+const encBody  = document.querySelector("#enc-table  tbody");
 
-function renderPanel(panel, choices, sel, search){
-  panel.innerHTML = "";
-  let shown = 0;
-  choices.forEach(txt=>{
-    if (search && !txt.toLowerCase().includes(search)) return;
-    shown++;
-    const di = document.createElement("div");
-    di.textContent = txt;
-    di.classList.add("dropdown-item");
-    if (sel.has(txt)) di.classList.add("selected");
-    di.addEventListener("click", e=>{
-      const multi = e.ctrlKey || e.metaKey;
-      if(!multi) sel.add(txt);
-      else sel.has(txt) ? sel.delete(txt) : sel.add(txt);
-      renderPanel(panel, choices, sel, document.getElementById(
-        panel===deptPanel ? "dept-search" : "enc-search").value.toLowerCase());
-    });
-    panel.appendChild(di);
+/* ---------------- render helpers -------------- */
+function drawTable(body, rows, sel){
+  body.innerHTML="";
+  rows.forEach(r=>{
+    const tr = document.createElement("tr");
+    const tdChk = document.createElement("td");
+    tdChk.classList.add("select-col");
+    const cb = document.createElement("input"); cb.type="checkbox";
+    cb.checked = sel.has(r.id);
+    cb.addEventListener("change", ()=> cb.checked? sel.add(r.id): sel.delete(r.id));
+    tdChk.appendChild(cb); tr.appendChild(tdChk);
+    const tdLab = document.createElement("td"); tdLab.textContent=r.label;
+    tr.appendChild(tdLab); body.appendChild(tr);
   });
-  /* <-- make the panel visible or hide if empty */
-  panel.style.display = shown ? "block" : "none";
 }
 
+function filterRows(all, q){ return !q? all : all.filter(r=>r.label.toLowerCase().includes(q)); }
+
+/* ---------------- load CSVs ------------------- */
 fetch("/get_department_choices/").then(r=>r.json()).then(j=>{
-  deptChoices = j.choices||[]; renderPanel(deptPanel, deptChoices, deptSel, "");
+  deptRows = j.choices || []; drawTable(deptBody, deptRows, deptSel);
 });
+
 fetch("/get_encounter_choices/").then(r=>r.json()).then(j=>{
-  encChoices = j.choices||[];  renderPanel(encPanel,  encChoices,  encSel,  "");
+  encRows = j.choices  || []; drawTable(encBody,  encRows,  encSel);
 });
 
+/* ---------------- search / select‑all / clear  */
 document.getElementById("dept-search").addEventListener("input", e=>{
-  renderPanel(deptPanel, deptChoices, deptSel, e.target.value.toLowerCase());
-});
-document.getElementById("enc-search").addEventListener("input", e=>{
-  renderPanel(encPanel, encChoices, encSel, e.target.value.toLowerCase());
+  drawTable(deptBody, filterRows(deptRows, e.target.value.toLowerCase()), deptSel);
 });
 
-/* ---- submit → build settings object & expose globally ---- */
+const deptSearch = document.getElementById("dept-search");
+document.getElementById("dept-select-all").addEventListener("click", e => {
+  e.preventDefault();
+  const current = filterRows(deptRows, deptSearch.value.toLowerCase());
+  current.forEach(r => deptSel.add(r.id));        // add by ID, not row index
+  drawTable(deptBody, current, deptSel);          // re‑render to tick boxes
+});
+
+document.getElementById("dept-clear").addEventListener("click", ()=>{
+  deptSel.clear(); drawTable(deptBody, filterRows(deptRows,
+        document.getElementById("dept-search").value.toLowerCase()), deptSel);
+});
+
+document.getElementById("enc-clear").addEventListener("click", ()=>{
+  encSel.clear(); drawTable(encBody, encRows, encSel);
+});
+
+/* ------------ build settings blob & expose ---- */
 const msgEl = document.getElementById("settings-msg");
 document.getElementById("settingsSubmit").addEventListener("click", ()=>{
   if(!deptSel.size && !encSel.size){
-    msgEl.innerHTML = "<span style='color:#dc3545;'>Please select at least one department OR encounter type.</span>";
+    msgEl.innerHTML="<span style='color:#dc3545;'>Please select at least one department OR encounter.</span>";
     return;
   }
-  const obj = {
+  window.settingsForEmail = {
     age_min : document.getElementById("age-min").value || "",
     age_max : document.getElementById("age-max").value || "",
-    department_types : Array.from(deptSel),
-    encounter_types  : Array.from(encSel),
-    visit_start_date : document.getElementById("start-date").value,
-    visit_end_date   : document.getElementById("end-date").value,
-    detailed_mode    : false
+    department_ids    : Array.from(deptSel),
+    department_labels : deptRows.filter(r => deptSel.has(r.id)).map(r => r.label),
+    encounter_ids     : Array.from(encSel),
+    encounter_labels  : encRows.filter(r => encSel.has(r.id)).map(r => r.label),
+    visit_start_date  : document.getElementById("start-date").value,   // YYYY-MM-DD
+    visit_end_date    : document.getElementById("end-date").value,
+    detailed_mode     : false
   };
-  window.settingsForEmail = obj;                // <‑‑ make globally visible
-  msgEl.style.color = "#4caf50";
-  msgEl.textContent = "Your settings have been submitted!";
+  msgEl.style.color="#4caf50";
+  msgEl.textContent="Your settings have been submitted!";
 });
 </script>

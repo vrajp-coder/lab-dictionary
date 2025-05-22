@@ -1,0 +1,31 @@
+visit_concept_id,Encounter_type
+262,Emergency Room and Inpatient Visit
+9203,Emergency Room Visit
+581477,Office Visit
+37117046,Care plan
+5083,Telehealth
+4309829,Clinical document
+44814677,Other acute inpatient hospital
+44818518,Visit derived from EHR record
+9202,Outpatient Visit
+32021,Visit derived from encounter on medical claim
+32036,Laboratory Visit
+581476,Home Visit
+44814673,Emergency department
+36716106,Laboratory order
+44807018,Letter
+9201,Inpatient Visit
+32024,Visit derived from encounter on medical professional claim
+581458,Pharmacy visit
+4212052,Anesthesia record
+35630684,Assertive Outreach care plan
+37109200,Electronic report
+44810196,Participation in research
+32034,Visit derived from EHR billing record
+581385,Observation Room
+4220288,Surgical intraoperative record
+44788396,Prescription
+44788403,Diagnostic Imaging Encounter
+44791013,Scanned document
+4155385,Postmortem report
+36716104,Order document

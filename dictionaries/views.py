@@ -25,14 +25,20 @@ def index_view(request):
 
 def _load_department_choices():
     global _DEP_CACHE, _DEP_MTIME
-    pattern = BASE_DIR / "dictionaries" / "data" / "department_type.csv"
-    if not pattern.exists(): return []
-    mtime = pattern.stat().st_mtime
+    pattern = BASE_DIR / "dictionaries" / "data" / "department_reference_*.csv"
+    files   = glob.glob(str(pattern))
+    if not files:           # none found
+        return []
+    latest  = max(files, key=os.path.getmtime)
+    mtime   = os.path.getmtime(latest)
     if _DEP_CACHE is not None and mtime == _DEP_MTIME:
         return _DEP_CACHE
-    with open(pattern, newline="", encoding="utf-8") as fh:
+    with open(latest, newline="", encoding="utf-8") as fh:
         rdr = csv.DictReader(fh)
-        col = [r["department_type"].strip() for r in rdr]
+        col = [
+            {"id": r["care_site_id"].strip(), "label": r["Department"].strip()}
+            for r in rdr if r["care_site_id"] and r["Department"]
+            ]
     _DEP_CACHE, _DEP_MTIME = col, mtime
     return col
 
@@ -42,14 +48,20 @@ def get_department_choices_view(request):
 
 def _load_encounter_choices():
     global _ENC_CACHE, _ENC_MTIME
-    pattern = BASE_DIR / "dictionaries" / "data" / "encounter_type.csv"
-    if not pattern.exists(): return []
-    mtime = pattern.stat().st_mtime
+    pattern = BASE_DIR / "dictionaries" / "data" / "encounter_type_reference_*.csv"
+    files   = glob.glob(str(pattern))
+    if not files:
+        return []
+    latest  = max(files, key=os.path.getmtime)
+    mtime   = os.path.getmtime(latest)
     if _ENC_CACHE is not None and mtime == _ENC_MTIME:
         return _ENC_CACHE
-    with open(pattern, newline="", encoding="utf-8") as fh:
+    with open(latest, newline="", encoding="utf-8") as fh:
         rdr = csv.DictReader(fh)
-        col = [r["encounter_type"].strip() for r in rdr]
+        col = [
+            {"id": r["visit_concept_id"].strip(), "label": r["Encounter_type"].strip()}
+            for r in rdr if r["visit_concept_id"] and r["Encounter_type"]
+            ]
     _ENC_CACHE, _ENC_MTIME = col, mtime
     return col
 
@@ -449,23 +461,55 @@ def submit_data_view(request):
     # -----------------------------------------------------------
     attachments = []                 # <-- declare BEFORE use
     settings_blob = previews.get("settings")   # may be None
+    def to_iso(date_str: str) -> str:
+        """Return YYYY-MM-DD, accepting '',  YYYY-MM-DD,  MM/DD/YYYY,  or  MM-DD-YYYY."""
+        if not date_str:
+            return ""
+        if "-" in date_str and len(date_str.split("-")[0]) == 4:
+            return date_str                       # already ISO
+        for fmt in ("%m/%d/%Y", "%m-%d-%Y"):
+            try:
+                return datetime.datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        return date_str                           # unknown → leave unchanged
+    
     def build_settings_csv(b):
         if not b: return None
         rows = [
-            ["age_min",          b.get("age_min","")],
-            ["age_max",          b.get("age_max","")],
-            ["department_type", *b.get("department_types", [])],
-            ["encounter_type",  *b.get("encounter_types", [])],
-            ["visit_start_date", b.get("visit_start_date","")],
-            ["visit_end_date",   b.get("visit_end_date","")],
+            ["age_min",          b.get("age_min", "")],
+            ["age_max",          b.get("age_max", "")],
+            ["department_type", *b.get("department_ids", [])],
+            ["encounter_type",  *b.get("encounter_ids", [])],
+            ["visit_start_date", to_iso(b.get("visit_start_date", ""))],
+            ["visit_end_date",   to_iso(b.get("visit_end_date",   ""))],
             ["detailed_mode",    "TRUE" if b.get("detailed_mode") else "FALSE"],
         ]
         sio = io.StringIO(); csv.writer(sio).writerows(rows)
         return sio.getvalue().encode(), "omop_settings.csv"
 
+    summary_lines = []
     if settings_blob:
         att = build_settings_csv(settings_blob)
-        if att: attachments.append(att)
+        if att:
+            attachments.append(att)
+        age_min = settings_blob.get("age_min") or "N/A"
+        age_max = settings_blob.get("age_max") or "N/A"
+        summary_lines.append(f"Age range      : {age_min} – {age_max}")
+
+        depts = ", ".join(settings_blob.get("department_labels", [])) or "None"
+        summary_lines.append(f"Departments    : {depts}")
+
+        encs  = ", ".join(settings_blob.get("encounter_labels",  [])) or "None"
+        summary_lines.append(f"Encounter types: {encs}")
+
+        v_start = to_iso(settings_blob.get("visit_start_date", "")) or "N/A"
+        v_end   = to_iso(settings_blob.get("visit_end_date",   "")) or "N/A"
+        summary_lines.append(f"Date range     : {v_start} → {v_end}")
+
+        summary_block = "OMOP Settings\n" + "\n".join(summary_lines) + "\n\n"
+    else:
+        summary_block = ""
 
     # --- Helper to call generate_csv_view internally -------------------------
     def build_csv(preview_list, ftype, prefix):
@@ -523,7 +567,8 @@ def submit_data_view(request):
         "A data request has been made by the user below:\n\n"
         f"Name : {first} {last}\n"
         f"Email: {user_email}\n"
-        f"IRB #: {irb}\n"
+        f"IRB #: {irb}\n\n"
+        + summary_block
     )
     email_team = EmailMessage(
         subject=subj_team,
@@ -531,7 +576,8 @@ def submit_data_view(request):
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[
             "vraj.pandya@yale.edu",
-            "bashar.kadhim@yale.edu"
+            # "bashar.kadhim@yale.edu",
+            # "bashar.kadhim@ynhh.org"
             ]
     )
     for content, fname in attachments:
