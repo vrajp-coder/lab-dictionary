@@ -479,10 +479,10 @@ def submit_data_view(request):
         rows = [
             ["age_min",          b.get("age_min", "")],
             ["age_max",          b.get("age_max", "")],
-            ["department_type", *b.get("department_ids", [])],
-            ["encounter_type",  *b.get("encounter_ids", [])],
-            ["visit_start_date", to_iso(b.get("visit_start_date", ""))],
-            ["visit_end_date",   to_iso(b.get("visit_end_date",   ""))],
+            ["department_type",  *b.get("department_ids", [])],
+            ["encounter_type",   *b.get("encounter_ids", [])],
+            ["visit_start_date", "'" + to_iso(b.get("visit_start_date", ""))],
+            ["visit_end_date",   "'" + to_iso(b.get("visit_end_date",   ""))],
             ["detailed_mode",    "TRUE" if b.get("detailed_mode") else "FALSE"],
         ]
         sio = io.StringIO(); csv.writer(sio).writerows(rows)
@@ -497,11 +497,13 @@ def submit_data_view(request):
         age_max = settings_blob.get("age_max") or "N/A"
         summary_lines.append(f"Age range      : {age_min} – {age_max}")
 
-        depts = ", ".join(settings_blob.get("department_labels", [])) or "None"
-        summary_lines.append(f"Departments    : {depts}")
+        depts_list = settings_blob.get("department_labels", [])
+        depts = "\n    - " + "\n    - ".join(depts_list) if depts_list else " None"
+        summary_lines.append(f"Departments    :{depts}")
 
-        encs  = ", ".join(settings_blob.get("encounter_labels",  [])) or "None"
-        summary_lines.append(f"Encounter types: {encs}")
+        encs_list = settings_blob.get("encounter_labels", [])
+        encs = "\n    - " + "\n    - ".join(encs_list) if encs_list else " None"
+        summary_lines.append(f"Encounter types:{encs}")
 
         v_start = to_iso(settings_blob.get("visit_start_date", "")) or "N/A"
         v_end   = to_iso(settings_blob.get("visit_end_date",   "")) or "N/A"
