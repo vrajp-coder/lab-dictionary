@@ -46,7 +46,7 @@
 
   <!-- update table -->
   <div style="margin-bottom:15px;">
-    <button class="btn btn-success" id="procUpdateTableBtn" style="display:none;">Update Table</button>
+    <button class="btn btn-success btn-mini" id="procUpdateTableBtn" style="display:none;">Update Table</button>
   </div>
 
   <!-- ************  TABLES  (flex wrapper)  ************ -->
@@ -60,14 +60,14 @@
               <tr>
                 <th class="select-col"></th><th>concept_name</th><th>concept_id</th>
                 <th>order_code</th><th>order_description</th>
-                <th>frequency</th><th>percentage</th>
+                <th class="narrow">frequency</th><th class="narrow">percentage</th>
                 <th>domain_id</th><th>vocabulary_id</th><th>concept_code</th><th>concept_class_id</th>
               </tr>
             </thead>
             <tbody id="procedure-table-body"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" id="procedureClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
+        <button class="btn btn-danger btn-mini" id="procedureClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
       </div>
     </div>
 
@@ -79,15 +79,15 @@
             <thead>
               <tr>
                 <th class="select-col"></th><th>concept_name</th><th>concept_id</th>
-                <th>code</th><th>procedure_code</th><th>procedure_description</th>
-                <th>frequency</th><th>percentage</th>
+                <th class="narrow">code</th><th>procedure_code</th><th>procedure_description</th>
+                <th class="narrow">frequency</th><th class="narrow">percentage</th>
                 <th>domain_id</th><th>vocabulary_id</th><th>concept_code</th><th>concept_class_id</th>
               </tr>
             </thead>
             <tbody id="icd-table-body"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" id="icdClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
+        <button class="btn btn-danger btn-mini" id="icdClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
       </div>
     </div>
   </div>
@@ -486,8 +486,12 @@ function renderProcTable(){
     // visible cols
     ["concept_name","concept_id","order_code","order_description",
      "frequency","percentage","domain_id","vocabulary_id",
-     "concept_code","concept_class_id"].forEach(col=>{
-      const td=document.createElement("td"); td.textContent=row[col]; tr.appendChild(td);
+     "concept_code","concept_class_id"]
+     .forEach(col=>{
+      const td=document.createElement("td");
+      if(col==="frequency"||col==="percentage") td.classList.add("narrow");
+      td.textContent=row[col];
+      tr.appendChild(td);
     });
     procTableBody.appendChild(tr);
   });
@@ -516,8 +520,12 @@ function renderIcdTable(){
     tdChk.appendChild(cb); tr.appendChild(tdChk);
     ["concept_name","concept_id","code","procedure_code","procedure_description",
      "frequency","percentage","domain_id","vocabulary_id",
-     "concept_code","concept_class_id"].forEach(col=>{
-      const td=document.createElement("td"); td.textContent=row[col]; tr.appendChild(td);
+     "concept_code","concept_class_id"]
+     .forEach(col=>{
+      const td=document.createElement("td");
+      if(col==="code"||col==="frequency"||col==="percentage") td.classList.add("narrow");
+      td.textContent=row[col];
+      tr.appendChild(td);
     });
     icdTableBody.appendChild(tr);
   });

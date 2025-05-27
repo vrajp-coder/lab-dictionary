@@ -31,6 +31,10 @@
     .btn-success:hover { background-color:#45a049; border-color:#45a049; }
     .btn-danger { background-color:#dc3545; border-color:#dc3545; }
     .btn-danger:hover { background-color:#c82333; border-color:#bd2130; }
+    .btn-mini {
+      font-size:0.65rem;
+      padding:2px 5px;
+    }
     .new-session-btn {
       display:block; margin:40px auto 20px auto;
     }
@@ -50,7 +54,7 @@
       background-color:#1e1e1e;
       border:1px solid #333;
       border-radius:5px;
-      max-height:150px;
+      max-height:350px;
       overflow-y:auto;
       position:relative;
       padding:10px;
@@ -58,7 +62,11 @@
       flex:1;  /* half of the container's width */
     }
     .dropdown-item {
-      cursor:pointer; padding:5px; border-radius:3px; margin-bottom:2px;
+      cursor:pointer;
+      padding:5px;
+      border-radius:3px;
+      margin-bottom:2px;
+      font-size:0.75rem;
     }
     .dropdown-item:hover { background-color:#333; }
     .dropdown-item.selected { background-color:#4caf50; color:#000; }
@@ -74,34 +82,35 @@
       border:1px solid #333;
       border-radius:5px;
       max-height:150px;
-      overflow-y:auto;
+      overflow-y:scroll;
       padding:10px;
       display:none; /* hidden if no dropdown selections yet */
-      flex:1;
+      flex:0.5;
     }
     .pharma-panel-title {
-      font-size:1rem;
+      font-size:0.75rem;
       font-weight:bold;
-      margin-bottom:5px;
+      margin-bottom:4px;
     }
     .pharma-panel-item {
-      margin-bottom:3px;
+      font-size:0.75rem;
+      margin-bottom:2px;
     }
 
     .selected-tags {
       background-color:#1e1e1e; border:1px solid #333; border-radius:5px;
-      padding:10px; min-height:35px; margin-bottom:20px;
+      padding:10px; min-height:35px; margin-bottom:5px;
       display:flex; flex-wrap:wrap; gap:8px; display:none; /* hidden if no data yet */
     }
     .tag {
       background-color:#333; border-radius:3px; padding:5px 8px;
-      display:inline-flex; align-items:center; gap:6px;
+      display:inline-flex; align-items:center; gap:6px; font-size:0.75rem;
     }
-    .remove-tag { cursor:pointer; color:#dc3545; font-weight:bold; }
+    .remove-tag { cursor:pointer; color:#dc3545; font-weight:bold; font-size:0.75rem;}
     .remove-tag:hover { text-decoration:underline; color:#ff6b81; }
 
     .table-container {
-      border:1px solid #333; border-radius:5px; max-height:300px;
+      border:1px solid #333; border-radius:5px; max-height:400px;
       overflow-y:auto; font-size:0.75rem; margin-bottom:10px; display:none;
     }
     table.csv-table { width:100%; border-collapse:collapse; table-layout:fixed; }
@@ -117,8 +126,11 @@
     }
     table.csv-table th {
       background-color:#2a2a2a; position:sticky; top:0; z-index:1; text-align:left;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     th.select-col, td.select-col { width:24px; text-align:center; vertical-align:middle; }
+
+    th.narrow, td.narrow  { max-width:80px; width:80px}
 
     .capture-row {
       display:flex; flex-direction:row; align-items:flex-end; gap:15px; margin-bottom:25px;
@@ -207,6 +219,16 @@
         document.getElementById(tabId).style.display = "block";
       });
     });
+    /* helper that adds an ellipsis tooltip to truncated cells  */
+    function addEllipsisTooltips(container){
+        container.querySelectorAll("td,th").forEach(cell=>{
+            if(cell.scrollWidth>cell.clientWidth){
+                cell.title = cell.textContent;
+            }else{
+                cell.removeAttribute("title");
+            }
+        });
+    }
   </script>
 
 </body>

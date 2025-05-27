@@ -34,7 +34,7 @@
 
         <!-- Update Table Button -->
         <div style="margin-bottom:20px;">
-          <button class="btn btn-success" id="updateTableBtn" style="display:none;">
+          <button class="btn btn-success btn-mini" id="updateTableBtn" style="display:none;">
             Update Table
           </button>
         </div>
@@ -49,9 +49,9 @@
                 <th>generic_name</th>
                 <th class="select-col"></th>
                 <th>drug_name_dose</th>
-                <th>drug_concept_id</th>
-                <th>frequency</th>
-                <th>percentage</th>
+                <th class="narrow">drug_concept_id</th>
+                <th class="narrow">frequency</th>
+                <th class="narrow">percentage</th>
               </tr>
             </thead>
             <tbody id="csv-table-body"></tbody>
@@ -60,7 +60,7 @@
 
         <!-- Clear Table Button -->
         <div style="margin-bottom:20px;">
-          <button class="btn btn-danger" id="clearTableBtn" style="display:none;">
+          <button class="btn btn-danger btn-mini" id="clearTableBtn" style="display:none;">
             Clear Table
           </button>
         </div>
@@ -482,14 +482,17 @@
 
         // Next columns: drug_concept_id, frequency, percentage
         let tdDc = document.createElement("td");
+        tdDc.classList.add("narrow");
         tdDc.textContent = row.drug_concept_id;
         tr.appendChild(tdDc);
 
         let tdFr = document.createElement("td");
+        tdFr.classList.add("narrow");
         tdFr.textContent = row.frequency;
         tr.appendChild(tdFr);
 
         let tdPc = document.createElement("td");
+        tdPc.classList.add("narrow");
         tdPc.textContent = row.percentage;
         tr.appendChild(tdPc);
 

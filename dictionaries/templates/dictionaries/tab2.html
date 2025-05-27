@@ -45,7 +45,7 @@
 
   <!-- update table -->
   <div style="margin-bottom:15px;">
-    <button class="btn btn-success" id="labsUpdateTableBtn" style="display:none;">Update Table</button>
+    <button class="btn btn-success btn-mini" id="labsUpdateTableBtn" style="display:none;">Update Table</button>
   </div>
 
   <!-- ************  TABLES  (flex wrapper)  ************ -->
@@ -58,13 +58,13 @@
             <thead>
               <tr>
                 <th class="select-col"></th><th>concept_name</th>
-                <th>frequency</th><th>percentage</th><th>unit_source_value</th>
+                <th class="narrow">frequency</th><th class="narrow">percentage</th><th class="narrow">unit_source_value</th>
               </tr>
             </thead>
             <tbody id="lab-table-body"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" id="labClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
+        <button class="btn btn-danger btn-mini" id="labClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
       </div>
     </div>
 
@@ -76,13 +76,13 @@
             <thead>
               <tr>
                 <th class="select-col"></th><th>concept_name</th>
-                <th>frequency</th><th>percentage</th><th>value_source_value</th>
+                <th class="narrow">frequency</th><th class="narrow">percentage</th><th class="narrow">value_source_value</th>
               </tr>
             </thead>
             <tbody id="flowsheet-table-body"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" id="flowsheetClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
+        <button class="btn btn-danger btn-mini" id="flowsheetClearTableBtn" style="display:none; margin-top:6px;">Clear Table</button>
       </div>
     </div>
   </div>
@@ -451,12 +451,15 @@
 
       // the remaining 3 columns
       let tdF = document.createElement("td");
+      tdF.classList.add("narrow");
       tdF.textContent = row.frequency; tr.appendChild(tdF);
 
       let tdP = document.createElement("td");
+      tdP.classList.add("narrow");
       tdP.textContent = row.percentage; tr.appendChild(tdP);
 
       let tdSV= document.createElement("td");
+      tdSV.classList.add("narrow");
       tdSV.textContent = row.unit_source_value; tr.appendChild(tdSV);
 
       labTableBody.appendChild(tr);
@@ -504,12 +507,15 @@
 
       // the remaining 3 columns
       let tdF = document.createElement("td");
+      tdF.classList.add("narrow");
       tdF.textContent = row.frequency; tr.appendChild(tdF);
 
       let tdP = document.createElement("td");
+      tdP.classList.add("narrow");
       tdP.textContent = row.percentage; tr.appendChild(tdP);
 
       let tdSV= document.createElement("td");
+      tdSV.classList.add("narrow");
       tdSV.textContent = row.value_source_value; tr.appendChild(tdSV);
 
       flowsheetTableBody.appendChild(tr);

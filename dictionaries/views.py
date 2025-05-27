@@ -555,6 +555,7 @@ def submit_data_view(request):
         "Please do not reply - this inbox is not monitored regularly.\n"
         "If you have questions, contact bashar.kadhim@yale.edu.\n\n"
         "Sincerely,\nThe CTRA Team"
+        + summary_block
     )
     EmailMessage(
         subject=subj_user,
