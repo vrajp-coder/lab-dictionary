@@ -430,7 +430,7 @@
         tr.appendChild(tdPhCheck);
 
         let tdPhVal = document.createElement("td");
-        tdPhVal.textContent = row.pharma_class;
+        attachTooltip(tdPhVal, row.pharma_class);
         tr.appendChild(tdPhVal);
 
         // 2) generic_name checkbox
@@ -456,7 +456,7 @@
         tr.appendChild(tdGnCheck);
 
         let tdGnVal = document.createElement("td");
-        tdGnVal.textContent = row.generic_name;
+        attachTooltip(tdGnVal, row.generic_name);
         tr.appendChild(tdGnVal);
 
         // 3) drug_name_dose checkbox
@@ -477,23 +477,23 @@
         tr.appendChild(tdDrCheck);
 
         let tdDrVal = document.createElement("td");
-        tdDrVal.textContent = row.drug_name_dose;
+        attachTooltip(tdDrVal, row.drug_name_dose);
         tr.appendChild(tdDrVal);
 
         // Next columns: drug_concept_id, frequency, percentage
         let tdDc = document.createElement("td");
         tdDc.classList.add("narrow");
-        tdDc.textContent = row.drug_concept_id;
+        attachTooltip(tdDc, row.drug_concept_id);
         tr.appendChild(tdDc);
 
         let tdFr = document.createElement("td");
         tdFr.classList.add("narrow");
-        tdFr.textContent = row.frequency;
+        attachTooltip(tdFr, row.frequency);
         tr.appendChild(tdFr);
 
         let tdPc = document.createElement("td");
         tdPc.classList.add("narrow");
-        tdPc.textContent = row.percentage;
+        attachTooltip(tdPc, row.percentage);
         tr.appendChild(tdPc);
 
         tableBody.appendChild(tr);

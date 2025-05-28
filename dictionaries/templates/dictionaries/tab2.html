@@ -101,14 +101,29 @@
       </div>
     </div>
 
-    <!-- Flowsheet capture -->
+    <!-- ------------ RIGHT column (Flowsheet) --------------- -->
     <div style="flex:1;">
+      <!-- regular capture -->
       <div id="flowsheet-capture-section" style="display:none;">
         <h4>Capture Columns (Flowsheet)</h4>
         <div style="display:flex; gap:12px; margin-bottom:12px;">
           <input type="text" id="flowsheet-col-name" placeholder="Column Name">
           <button class="btn btn-success" id="flowsheetCaptureBtn">Capture</button>
           <button class="btn btn-danger" id="flowsheetNextColumnBtn">Next</button>
+        </div>
+      </div>
+
+      <!-- custom capture lives *below* the regular one, same column -->
+      <div id="flowsheet-custom-section" style="display:none; margin-top:6px;">
+        <h4>Custom Capture Columns (Flowsheet)</h4>
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <input type="text" id="flowCustom-col-name"
+                placeholder="Column Name" style="width:160px;">
+          <button class="btn btn-success btn-mini" id="flowCustomCaptureBtn">Capture</button>
+
+          <input type="text" id="flowCustom-ids"
+                placeholder="IDs" style="flex:1; min-width:120px;">
+          <button class="btn btn-danger btn-mini" id="flowCustomNextBtn">Next</button>
         </div>
       </div>
     </div>
@@ -142,26 +157,30 @@
   //-------------------------------------------------------
   // TAB #2: "Labs" - STATES
   //-------------------------------------------------------
-  let labData = [];          // entire lab dataset
-  let flowsheetData = [];    // entire flowsheet dataset
-  let filteredLabData = [];  // lab rows after "Update Table"
-  let filteredFlowData = []; // flowsheet rows after "Update Table"
+  let labData = [];                    // entire lab dataset
+  let flowsheetData = [];              // entire flowsheet dataset
+  let filteredLabData = [];            // lab rows after "Update Table"
+  let filteredFlowData = [];           // flowsheet rows after "Update Table"
 
   // For lab dropdown
-  let labSelectedConcepts = new Set();        // user picks from lab (by concept_name / concept_code)
-  let labDropdownOrder = [];                  // order for tag display
+  let labSelectedConcepts = new Set(); // user picks from lab (by concept_name / concept_code)
+  let labDropdownOrder = [];           // order for tag display
 
   // For flowsheet dropdown
   let flowSelectedConcepts = new Set();
   let flowDropdownOrder = [];
 
+  // For custom flowsheet
+  var flowCustomColumns = [];          // { colName, ids[] }
+  let flowCustomEditing  = -1;         // index we’re currently adding IDs to
+
   // For table row checkboxes
-  let labSelectedRows = new Set();         // rowIndex for Lab
-  let flowSelectedRows = new Set();        // rowIndex for Flowsheet
+  let labSelectedRows = new Set();     // rowIndex for Lab
+  let flowSelectedRows = new Set();    // rowIndex for Flowsheet
 
   // For preview columns
-  var labPreviewColumns = [];      // array of { colName, conceptNames[], labIds[] }
-  var flowsheetPreviewColumns = [];     // array of { colName, conceptNames[], flowsheetIds[] }
+  var labPreviewColumns = [];          // array of { colName, conceptNames[], labIds[] }
+  var flowsheetPreviewColumns = [];    // array of { colName, conceptNames[], flowsheetIds[] }
 
   // DOM
   const labLoader  = document.getElementById("lab-loader");
@@ -207,6 +226,13 @@
   const flowColNameInput        = document.getElementById("flowsheet-col-name");
   const flowsheetCaptureBtn     = document.getElementById("flowsheetCaptureBtn");
   const flowsheetNextColumnBtn  = document.getElementById("flowsheetNextColumnBtn");
+
+  // Custom Flowsheet
+  const flowCustomSection      = document.getElementById("flowsheet-custom-section");
+  const flowCustomColName      = document.getElementById("flowCustom-col-name");
+  const flowCustomIdsInput     = document.getElementById("flowCustom-ids");
+  const flowCustomCaptureBtn   = document.getElementById("flowCustomCaptureBtn");
+  const flowCustomNextBtn      = document.getElementById("flowCustomNextBtn");
 
   // Lab preview
   const labPreviewSection = document.getElementById("lab-preview-section");
@@ -266,6 +292,7 @@
       // show UI
       labDropdownSection.style.display       = "block";
       flowsheetDropdownSection.style.display = "block";
+      flowCustomSection.style.display        = "block";
       labTableSection.style.display          = "block";
       flowsheetTableSection.style.display    = "block";
       labClearTableBtn.style.display         = "inline-block";
@@ -297,6 +324,8 @@
     // We'll re-render the appropriate dropdown(s)
     renderLabDropdown(val);
     renderFlowDropdown(val);
+    renderLabTable();
+    renderFlowsheetTable();
   });
 
   function renderLabDropdown(searchVal){
@@ -446,21 +475,21 @@
 
       // 2) concept_name
       let tdName = document.createElement("td");
-      tdName.textContent = row.concept_name;
+      attachTooltip(tdName, row.concept_name);
       tr.appendChild(tdName);
 
       // the remaining 3 columns
       let tdF = document.createElement("td");
       tdF.classList.add("narrow");
-      tdF.textContent = row.frequency; tr.appendChild(tdF);
+      attachTooltip(tdF, row.frequency); tr.appendChild(tdF);
 
       let tdP = document.createElement("td");
       tdP.classList.add("narrow");
-      tdP.textContent = row.percentage; tr.appendChild(tdP);
+      attachTooltip(tdP, row.percentage); tr.appendChild(tdP);
 
       let tdSV= document.createElement("td");
       tdSV.classList.add("narrow");
-      tdSV.textContent = row.unit_source_value; tr.appendChild(tdSV);
+      attachTooltip(tdSV, row.unit_source_value); tr.appendChild(tdSV);
 
       labTableBody.appendChild(tr);
     });
@@ -502,21 +531,21 @@
 
       // concept_name
       let tdName = document.createElement("td");
-      tdName.textContent = row.concept_name;
+      attachTooltip(tdName, row.concept_name);
       tr.appendChild(tdName);
 
       // the remaining 3 columns
       let tdF = document.createElement("td");
       tdF.classList.add("narrow");
-      tdF.textContent = row.frequency; tr.appendChild(tdF);
+      attachTooltip(tdF, row.frequency); tr.appendChild(tdF);
 
       let tdP = document.createElement("td");
       tdP.classList.add("narrow");
-      tdP.textContent = row.percentage; tr.appendChild(tdP);
+      attachTooltip(tdP, row.percentage); tr.appendChild(tdP);
 
       let tdSV= document.createElement("td");
       tdSV.classList.add("narrow");
-      tdSV.textContent = row.value_source_value; tr.appendChild(tdSV);
+      attachTooltip(tdSV, row.value_source_value); tr.appendChild(tdSV);
 
       flowsheetTableBody.appendChild(tr);
     });
@@ -619,6 +648,38 @@
     renderFlowsheetPreview();
   });
 
+  /* --- Custom Capture COLNAME first --- */
+  flowCustomCaptureBtn.addEventListener("click", () => {
+    const name = flowCustomColName.value.trim();
+    if(!name){ alert("Enter a column name."); return; }
+
+    // create / overwrite entry
+    const idx = flowCustomColumns.findIndex(c=>c.colName===name);
+    const obj = { colName:name, ids:[] };
+    if(idx>=0) flowCustomColumns[idx] = obj; else flowCustomColumns.push(obj);
+
+    flowCustomEditing = flowCustomColumns.findIndex(c=>c.colName===name);
+    flowCustomIdsInput.focus();
+    renderFlowsheetPreview();   // re‑draw two‑row preview
+  });
+  flowCustomIdsInput.addEventListener("keydown", e=>{
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    const val = flowCustomIdsInput.value.trim();
+    if(!val || isNaN(+val)){ return; }   // numeric only
+    if(flowCustomEditing<0){ alert("Click Capture first."); return; }
+
+    const arr = flowCustomColumns[flowCustomEditing].ids;
+    if(!arr.includes(val)) arr.push(val);
+    flowCustomIdsInput.value="";
+    renderFlowsheetPreview();
+  });
+  flowCustomNextBtn.addEventListener("click", ()=>{
+    flowCustomColName.value = "";
+    flowCustomIdsInput.value= "";
+    flowCustomEditing = -1;
+  });
+
   //-------------------------------------------------------
   // PREVIEW RENDERERS  – now with clickable headers
   //-------------------------------------------------------
@@ -674,26 +735,75 @@
 
   // ---- Flowsheet ----
   function renderFlowsheetPreview(){
-    if (!flowsheetPreviewColumns.length){
+    const top    = flowsheetPreviewColumns;   // regular
+    const bottom = flowCustomColumns;         // custom
+
+    if(!top.length && !bottom.length){
       flowsheetPreviewBox.innerHTML = "<em>No columns captured yet.</em>";
       return;
     }
-    makePreviewTable(flowsheetPreviewColumns, flowsheetPreviewBox, colName => {
-      const obj = flowsheetPreviewColumns.find(c => c.colName === colName);
-      if (!obj) return;
 
-      flowColNameInput.value = obj.colName;
+    /* ---------- helper that makes a plain preview table ---------- */
+    const makeTable = (cols, buildBody)=>{
+      let h = '<table class="preview-table"><thead><tr>';
+      cols.forEach(c=> h += `<th>${c.colName}</th>`);
+      h += "</tr></thead><tbody>";
+      h += buildBody(cols);
+      h += "</tbody></table>";
+      return h;
+    };
 
-      flowSelectedConcepts = new Set(obj.conceptNames);
-      flowDropdownOrder    = [...obj.dropdownOrder];
+    /* top row (original capture) with clickable headers */
+    const topTable = makeTable(top, cols =>{
+      const rows = Math.max(...cols.map(c=>c.conceptNames.length||1));
+      let txt="";
+      for(let r=0;r<rows;r++){
+        txt+="<tr>";
+        cols.forEach(c=> txt+=`<td>${c.conceptNames[r]||""}</td>`);
+        txt+="</tr>";
+      }
+      return txt;
+    }).replace(/<th>([^<]+)/g,
+        '<th><span class="col-name-link" data-col="$1">$1</span>');
 
-      filteredFlowData = flowsheetData.filter(r => obj.flowsheetIds.includes(r.flowsheet_id));
-      flowSelectedRows.clear();
-      filteredFlowData.forEach(r => flowSelectedRows.add(r.rowIndex));
+    /* bottom row (custom IDs)  — only if user added any */
+    const bottomTable = !bottom.length ? "" :
+      makeTable(bottom, cols =>{
+        const rows = Math.max(...cols.map(c=>c.ids.length||1));
+        let txt="";
+        for(let r=0;r<rows;r++){
+          txt+="<tr>";
+          cols.forEach(c=> txt+=`<td>${c.ids[r]||""}</td>`);
+          txt+="</tr>";
+        }
+        return txt;
+      });
 
-      renderFlowDropdown(labsSearchInput.value.trim().toLowerCase());
-      renderFlowTags();
-      renderFlowsheetTable();
+    /* render */
+    flowsheetPreviewBox.innerHTML =
+        topTable + (bottomTable ? "<div style='height:8px'></div>"+bottomTable : "");
+
+    /* re‑attach click handler to first‑row headers */
+    flowsheetPreviewBox.querySelectorAll(".col-name-link").forEach(sp=>{
+      sp.addEventListener("click", ()=> {
+        const colName = sp.dataset.col;
+        const obj = flowsheetPreviewColumns.find(c=>c.colName===colName);
+        if(!obj) return;
+
+        flowColNameInput.value = obj.colName;
+        flowSelectedConcepts = new Set(obj.conceptNames);
+        flowDropdownOrder    = [...obj.dropdownOrder];
+
+        filteredFlowData = flowsheetData.filter(
+          r=>obj.flowsheetIds.includes(r.flowsheet_id)
+        );
+        flowSelectedRows.clear();
+        filteredFlowData.forEach(r=>flowSelectedRows.add(r.rowIndex));
+
+        renderFlowDropdown(labsSearchInput.value.trim().toLowerCase());
+        renderFlowTags();
+        renderFlowsheetTable();
+      });
     });
   }
 

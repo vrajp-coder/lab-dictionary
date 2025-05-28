@@ -128,6 +128,14 @@
       background-color:#2a2a2a; position:sticky; top:0; z-index:1; text-align:left;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    /* ------------- tool‑tip for ellipsis cells ------------- */
+    table.csv-table td[title],
+    table.csv-table th[title] {
+      /* allows the native browser tool‑tip to show */
+      overflow: hidden;          /* already present */
+      text-overflow: ellipsis;   /* already present */
+      white-space: nowrap;       /* already present */
+    }
     th.select-col, td.select-col { width:24px; text-align:center; vertical-align:middle; }
 
     th.narrow, td.narrow  { max-width:80px; width:80px}
@@ -201,8 +209,15 @@
     {% include "dictionaries/tab4.html" %}
   </div>
 
-  <!-- Shared tab-switching script -->
   <script>
+    /* -----------------------------------------------
+      attachTooltip(el, text) – give a cell a title
+    ------------------------------------------------ */
+    function attachTooltip(el, txt){
+      el.textContent = txt;
+      el.title       = txt;      // this is what shows on hover
+    }
+    /* Shared tab-switching script */
     document.querySelectorAll(".nav-link[data-tab]").forEach(link => {
       link.addEventListener("click", e => {
         e.preventDefault();

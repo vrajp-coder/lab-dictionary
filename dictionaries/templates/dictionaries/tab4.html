@@ -29,12 +29,13 @@
 /* gather previews from other tabs (they’re global arrays) */
 function collectPreviews(){
   return {
-    settings  : window.settingsForEmail || null,
-    tab1      : (window.previewColumns          || []).slice(),
-    tab2_lab  : (window.labPreviewColumns       || []).slice(),
-    tab2_flow : (window.flowsheetPreviewColumns || []).slice(),
-    tab3_proc : (window.procPreviewColumns      || []).slice(),
-    tab3_icd  : (window.icdPreviewColumns       || []).slice()
+    settings         : window.settingsForEmail || null,
+    tab1             : (window.previewColumns          || []).slice(),
+    tab2_lab         : (window.labPreviewColumns       || []).slice(),
+    tab2_flow        : (window.flowsheetPreviewColumns || []).slice(),
+    tab2_flow_custom : (window.flowCustomColumns       || []).slice(),
+    tab3_proc        : (window.procPreviewColumns      || []).slice(),
+    tab3_icd         : (window.icdPreviewColumns       || []).slice()
   };
 }
 
