@@ -319,14 +319,14 @@
   //-------------------------------------------------------
   // SEARCH => filters concept_name or concept_code in both
   //-------------------------------------------------------
-  labsSearchInput.addEventListener("input", ()=>{
-    const val = labsSearchInput.value.toLowerCase();
-    // We'll re-render the appropriate dropdown(s)
-    renderLabDropdown(val);
-    renderFlowDropdown(val);
-    renderLabTable();
-    renderFlowsheetTable();
-  });
+  labsSearchInput.addEventListener(
+    "input", debounce(() => { const q = labsSearchInput.value.toLowerCase();
+      renderLabDropdown(q);
+      renderFlowDropdown(q);
+      renderLabTable();
+      renderFlowsheetTable();
+    }, 250)
+  );
 
   function renderLabDropdown(searchVal){
   if(!labData.length) return;
@@ -342,7 +342,7 @@
   labDropdownPanel.style.display = arr.length?"block":"none";  // <<< toggle
   arr.forEach(name=>{
     const di=document.createElement("div");
-    di.textContent=name; di.style.padding="5px"; di.style.cursor="pointer";
+    di.classList.add("dropdown-item"); di.textContent=name;
     if(labSelectedConcepts.has(name)){di.style.background="#4caf50";di.style.color="#000";}
     di.addEventListener("click",e=>{
       const multi=e.ctrlKey||e.metaKey;
@@ -390,7 +390,7 @@
   flowsheetDropdownPanel.style.display = arr.length?"block":"none"; // <<< toggle
   arr.forEach(name=>{
     const di=document.createElement("div");
-    di.textContent=name; di.style.padding="5px"; di.style.cursor="pointer";
+    di.classList.add("dropdown-item"); di.textContent=name;
     if(flowSelectedConcepts.has(name)){di.style.background="#4caf50";di.style.color="#000";}
     di.addEventListener("click",e=>{
       const multi=e.ctrlKey||e.metaKey;
@@ -493,7 +493,7 @@
 
       labTableBody.appendChild(tr);
     });
-    addEllipsisTooltips(labTableBody);
+    document.dispatchEvent(new Event("refresh-tables"));
   }
 
   //-------------------------------------------------------
@@ -549,7 +549,7 @@
 
       flowsheetTableBody.appendChild(tr);
     });
-    addEllipsisTooltips(flowsheetTableBody);
+    document.dispatchEvent(new Event("refresh-tables"));
   }
 
   //-------------------------------------------------------
@@ -822,11 +822,5 @@
     })
     .catch(err=>alert("Error clearing session: "+err));
   });
-  /* Tiny utility: give every <td> its full text as a tooltip */
-  function addEllipsisTooltips(parentTableBody){
-    parentTableBody.querySelectorAll("td").forEach(td=>{
-      td.title = td.textContent.trim();
-    });
-  }
 </script>
   

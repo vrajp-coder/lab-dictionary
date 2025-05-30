@@ -536,12 +536,12 @@ def submit_data_view(request):
         return resp.content, body["fileName"]
 
     mapping = [
-        ("tab1",             "med",              "MED"),
-        ("tab2_lab",         "lab",              "LAB"),
-        ("tab2_flow",        "flowsheet",        "FLOWSHEET"),
-        ("tab2_flow_custom", "custom_flowsheet", "CUSTOM_FLOWSHEET"),
-        ("tab3_proc",        "procedure",        "PROCEDURE"),
-        ("tab3_icd",         "icd10cpt",         "PROCEDURE_CPT"),
+        ("tab1",             "med",              "med"),
+        ("tab2_lab",         "lab",              "lab"),
+        ("tab2_flow",        "flowsheet",        "observation"),
+        ("tab2_flow_custom", "custom_flowsheet", "custom_observation"),
+        ("tab3_proc",        "procedure",        "procedure"),
+        ("tab3_icd",         "icd10cpt",         "procedure_cpt"),
     ]
     for key, ftype, prefix in mapping:
         csv_bytes = build_csv(previews.get(key, []), ftype, prefix)

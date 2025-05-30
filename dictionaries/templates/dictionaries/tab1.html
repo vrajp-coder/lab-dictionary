@@ -198,10 +198,9 @@
     //-----------------------------------------------------------
     // SEARCH => re-render dropdown
     //-----------------------------------------------------------
-    searchInput.addEventListener("input", () => {
-      searchVal = searchInput.value.toLowerCase();
-      renderDropdown();
-    });
+    document.getElementById("search-input").addEventListener(
+      "input", debounce(() => { searchVal = searchInput.value.toLowerCase(); renderDropdown(); }, 250)
+    );
 
     //-----------------------------------------------------------
     // RENDER DROPDOWN
@@ -498,7 +497,7 @@
 
         tableBody.appendChild(tr);
       });
-      addEllipsisTooltips(tableBody);
+      document.dispatchEvent(new Event("refresh-tables"));
     }
 
     //-----------------------------------------------------------
@@ -657,12 +656,5 @@
       })
       .catch(err => alert("Error clearing session: " + err));
     });
-
-    /* Tiny utility: give every <td> its full text as a tooltip */
-    function addEllipsisTooltips(parentTableBody){
-      parentTableBody.querySelectorAll("td").forEach(td=>{
-        td.title = td.textContent.trim();
-      });
-    }
   </script>
   

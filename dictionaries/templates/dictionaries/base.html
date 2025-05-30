@@ -20,7 +20,7 @@
       text-align:center; margin-bottom:20px; padding-top:10px;
     }
     .page-container {
-      max-width:1600px; margin:0 auto; padding:0 5px;
+      max-width:98%; margin:0 auto; padding:0 5px;
     }
     .flex-row {
       display:flex; flex-direction:row; justify-content:center; gap:3%;
@@ -60,6 +60,11 @@
       padding:10px;
       display:none; /* hidden if no data yet */
       flex:1;  /* half of the container's width */
+      min-width:0;
+      width:100%;
+      max-width:100%;
+      overflow-x:hidden;
+      box-sizing:border-box;
     }
     .dropdown-item {
       cursor:pointer;
@@ -67,6 +72,8 @@
       border-radius:3px;
       margin-bottom:2px;
       font-size:0.75rem;
+      white-space:normal;
+      word-break:break-word;
     }
     .dropdown-item:hover { background-color:#333; }
     .dropdown-item.selected { background-color:#4caf50; color:#000; }
@@ -126,7 +133,7 @@
     }
     table.csv-table th {
       background-color:#2a2a2a; position:sticky; top:0; z-index:1; text-align:left;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default;
     }
     /* ------------- tool‑tip for ellipsis cells ------------- */
     table.csv-table td[title],
@@ -136,6 +143,13 @@
       text-overflow: ellipsis;   /* already present */
       white-space: nowrap;       /* already present */
     }
+
+    /* --- force arrow cursor on every cell (header & body) --- */
+    table.csv-table td,
+    table.csv-table th {
+      cursor: default !important;
+    }
+
     th.select-col, td.select-col { width:24px; text-align:center; vertical-align:middle; }
 
     th.narrow, td.narrow  { max-width:80px; width:80px}
@@ -160,6 +174,16 @@
     #tab2Content, #tab3Content { display:none; }
     .hidden { display:none !important; }
   </style>
+  <script>
+  /* tiny debounce – now available before any tab script runs */
+  function debounce(fn, wait = 250) {
+    let tID = null;
+    return (...args) => {
+      clearTimeout(tID);
+      tID = setTimeout(() => fn.apply(null, args), wait);
+    };
+  }
+  </script>
 </head>
 
 <body>
@@ -210,13 +234,29 @@
   </div>
 
   <script>
-    /* -----------------------------------------------
-      attachTooltip(el, text) – give a cell a title
-    ------------------------------------------------ */
-    function attachTooltip(el, txt){
-      el.textContent = txt;
-      el.title       = txt;      // this is what shows on hover
-    }
+  /* -----------------------------------------------
+    attachTooltip(el, text) – give a cell a title
+  ------------------------------------------------ */
+  function attachTooltip(el, txt){
+    el.textContent = txt;
+    el.title       = txt;      // this is what shows on hover
+  }
+  function addHeaderTooltips(){
+    document.querySelectorAll(".csv-table th").forEach(th=>{
+      th.title = th.textContent.trim();
+    });
+  }
+  /* run once on initial load … */
+  window.addEventListener("DOMContentLoaded", addHeaderTooltips);
+  /* … and again each time a tab redraws a table */
+  window.addEventListener("refresh-tables", addHeaderTooltips);
+  /* ---------- ensure every cell/TH that already exists gets a title ---------- */
+  function addStaticTooltips(){
+    document.querySelectorAll('.csv-table td, .csv-table th').forEach(cell=>{
+      if (!cell.title) cell.title = cell.textContent.trim();
+    });
+  }
+  document.addEventListener('DOMContentLoaded', addStaticTooltips);
     /* Shared tab-switching script */
     document.querySelectorAll(".nav-link[data-tab]").forEach(link => {
       link.addEventListener("click", e => {
@@ -234,16 +274,6 @@
         document.getElementById(tabId).style.display = "block";
       });
     });
-    /* helper that adds an ellipsis tooltip to truncated cells  */
-    function addEllipsisTooltips(container){
-        container.querySelectorAll("td,th").forEach(cell=>{
-            if(cell.scrollWidth>cell.clientWidth){
-                cell.title = cell.textContent;
-            }else{
-                cell.removeAttribute("title");
-            }
-        });
-    }
   </script>
 
 </body>

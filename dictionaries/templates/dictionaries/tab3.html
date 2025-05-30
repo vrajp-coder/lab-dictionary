@@ -286,12 +286,12 @@ window.addEventListener("DOMContentLoaded", () => {
 /* ------------------------------------------------------------
    per‑side search bars → filter own dropdown only
 ------------------------------------------------------------ */
-procedureSearchInput.addEventListener("input", () => {
-  renderProcDropdown(procedureSearchInput.value.toLowerCase());
-});
-icdSearchInput.addEventListener("input", () => {
-  renderIcdDropdown(icdSearchInput.value.toLowerCase());
-});
+procedureSearchInput.addEventListener(
+  "input", debounce(() => { renderProcDropdown(procedureSearchInput.value.toLowerCase()); }, 250)
+);
+icdSearchInput.addEventListener(
+  "input", debounce(() => { renderIcdDropdown(icdSearchInput.value.toLowerCase()); }, 250)
+);
 
 function renderProcDropdown(searchVal){
   if (!procedureData.length) return;
@@ -311,9 +311,8 @@ function renderProcDropdown(searchVal){
 
   arr.forEach(desc => {
     const di = document.createElement("div");
+    di.classList.add("dropdown-item");
     di.textContent = desc;
-    di.style.padding = "5px";
-    di.style.cursor  = "pointer";
 
     if (procSelectedConcepts.has(desc)) {         // selected set is now descriptions
       di.style.background = "#4caf50";
@@ -378,9 +377,8 @@ function renderIcdDropdown(searchVal){
 
   arr.forEach(desc => {
     const di = document.createElement("div");
+    di.classList.add("dropdown-item");
     di.textContent = desc;
-    di.style.padding = "5px";
-    di.style.cursor  = "pointer";
 
     if (icdSelectedConcepts.has(desc)) {
       di.style.background = "#4caf50";
@@ -495,7 +493,7 @@ function renderProcTable(){
     });
     procTableBody.appendChild(tr);
   });
-  addEllipsisTooltips(procTableBody);
+  document.dispatchEvent(new Event("refresh-tables"));
 }
 function renderIcdTable(){
   icdTableSection.style.display = filteredIcdData.length?"block":"none";
@@ -529,7 +527,7 @@ function renderIcdTable(){
     });
     icdTableBody.appendChild(tr);
   });
-  addEllipsisTooltips(icdTableBody);
+  document.dispatchEvent(new Event("refresh-tables"));
 }
 
 /* ----------------------------------------------------------------
@@ -638,11 +636,4 @@ procNewSessionBtn.addEventListener("click", ()=>{
     .then(j=>{ if(j.ok) window.location.reload(); else alert("Error clearing session"); })
     .catch(err=>alert("Error clearing session: "+err));
 });
-
-/* Tiny utility: give every <td> its full text as a tooltip */
-function addEllipsisTooltips(parentTableBody){
-  parentTableBody.querySelectorAll("td").forEach(td=>{
-    td.title = td.textContent.trim();
-  });
-}
 </script>
