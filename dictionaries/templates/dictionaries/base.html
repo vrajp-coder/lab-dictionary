@@ -258,20 +258,23 @@
   }
   document.addEventListener('DOMContentLoaded', addStaticTooltips);
     /* Shared tab-switching script */
-    document.querySelectorAll(".nav-link[data-tab]").forEach(link => {
-      link.addEventListener("click", e => {
+    function activateTab(tabKey){
+      /* hide / show containers exactly as before … */
+      ["tab0","tab1","tab2","tab3","tab4"].forEach(k=>{
+        document.getElementById(k+"Content").style.display = k===tabKey? "block":"none";
+        document.querySelector(`a[data-tab="${k}"]`).classList.toggle("active", k===tabKey);
+      });
+      /*  NEW  – custom event carries the key, e.g. “tab1”  */
+      document.dispatchEvent(new CustomEvent("tab-activated", { detail: tabKey }));
+    }
+
+    /* first paint = settings tab */
+    window.addEventListener("DOMContentLoaded", ()=> activateTab("tab0"));
+
+    document.querySelectorAll(".nav-link[data-tab]").forEach(link=>{
+      link.addEventListener("click",e=>{
         e.preventDefault();
-        // remove active from all nav links
-        document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
-        // hide all tab contents
-        document.querySelectorAll("#tab0Content, #tab1Content, #tab2Content, #tab3Content, #tab4Content").forEach(div => {
-          div.style.display="none";
-        });
-        // set this link to active
-        link.classList.add("active");
-        // show the correct tab
-        const tabId = link.getAttribute("data-tab") + "Content";
-        document.getElementById(tabId).style.display = "block";
+        activateTab(link.dataset.tab);
       });
     });
   </script>

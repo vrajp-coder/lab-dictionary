@@ -154,6 +154,46 @@
 </div>
   
 <script>
+  /* ---- auto‑load datasets ---- */
+  let labFlowLoaded = false;
+  function loadLabAndFlow(){
+    if(labFlowLoaded) return;
+    labFlowLoaded = true;
+
+    labLoader.style.display  = "inline";
+    flowLoader.style.display = "inline";
+
+    Promise.all([
+      fetch("/get_lab_data/").then(r=>r.json()),
+      fetch("/get_flowsheet_data/").then(r=>r.json())
+    ])
+    .then(([labJ,flowJ])=>{
+      labData = labJ.rows||[];  flowsheetData = flowJ.rows||[];
+      filteredLabData  = labData.slice();
+      filteredFlowData = flowsheetData.slice();
+      labLoader.style.display = flowLoader.style.display = "none";
+      labDropdownSection.style.display       = "block";
+      flowsheetDropdownSection.style.display = "block";
+      flowCustomSection.style.display        = "block";
+      labTableSection.style.display          = "block";
+      flowsheetTableSection.style.display    = "block";
+      labClearTableBtn.style.display         = "inline-block";
+      flowsheetClearTableBtn.style.display   = "inline-block";
+      labCaptureSection.style.display        = "block";
+      flowsheetCaptureSection.style.display  = "block";
+      labPreviewSection.style.display        = "block";
+      flowsheetPreviewSection.style.display  = "block";
+      labsUpdateTableBtn.style.display       = "inline-block";
+
+      showWrappers();
+      renderLabDropdown("");
+      renderFlowDropdown("");
+      renderLabTable();
+      renderFlowsheetTable();
+    })
+    .catch(err=>{ labLoader.textContent=flowLoader.textContent="Load error"; console.error(err); });
+  }
+
   //-------------------------------------------------------
   // TAB #2: "Labs" - STATES
   //-------------------------------------------------------
@@ -265,56 +305,6 @@
     d.appendChild(x);
     return d;
   }
-
-  /* ---- auto‑load datasets ---- */
-  window.addEventListener("DOMContentLoaded", () => {
-    labLoader.style.display   = "inline";
-    flowLoader.style.display  = "inline";
-
-    Promise.all([
-      fetch("/get_lab_data/").then(r=>r.json()),
-      fetch("/get_flowsheet_data/").then(r=>r.json())
-    ])
-    .then(([labJson, flowJson]) => {
-      labData       = labJson.rows || [];
-      flowsheetData = flowJson.rows || [];
-      filteredLabData  = labData.slice();
-      filteredFlowData = flowsheetData.slice();
-
-      labLoader.style.display  = "none";
-      flowLoader.style.display = "none";
-
-      if (!labData.length && !flowsheetData.length){
-        alert("Datasets not found on server.");
-        return;
-      }
-
-      // show UI
-      labDropdownSection.style.display       = "block";
-      flowsheetDropdownSection.style.display = "block";
-      flowCustomSection.style.display        = "block";
-      labTableSection.style.display          = "block";
-      flowsheetTableSection.style.display    = "block";
-      labClearTableBtn.style.display         = "inline-block";
-      flowsheetClearTableBtn.style.display   = "inline-block";
-      labCaptureSection.style.display        = "block";
-      flowsheetCaptureSection.style.display  = "block";
-      labPreviewSection.style.display        = "block";
-      flowsheetPreviewSection.style.display  = "block";
-      labsUpdateTableBtn.style.display       = "inline-block";
-
-      showWrappers();
-      renderLabDropdown("");
-      renderFlowDropdown("");
-      renderLabTable();
-      renderFlowsheetTable();
-    })
-    .catch(err=>{
-      labLoader.textContent   = "Load error";
-      flowLoader.textContent  = "Load error";
-      console.error(err);
-    });
-  });
 
   //-------------------------------------------------------
   // SEARCH => filters concept_name or concept_code in both
@@ -821,6 +811,10 @@
       }
     })
     .catch(err=>alert("Error clearing session: "+err));
+  });
+
+  document.addEventListener("tab-activated", e=>{
+    if(e.detail==="tab2") loadLabAndFlow();
   });
 </script>
   

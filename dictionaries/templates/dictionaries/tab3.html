@@ -145,495 +145,492 @@
 
 <!-- ─────────────────────────  SCRIPT  ───────────────────────── -->
 <script>
-/* ----------------------------------------------------------------
-   TAB #3 :  Procedure / ICD10 CPT
----------------------------------------------------------------- */
-let procedureData = [],           icdData = [];
-let filteredProcData = [],        filteredIcdData = [];
+  /* ---- auto‑load datasets ---- */
+  let procIcdLoaded = false;
+  function loadProcedureDatasets(){
+    if(procIcdLoaded) return;
+    procIcdLoaded = true;
 
-let procSelectedConcepts = new Set(),  procDropdownOrder = [];
-let icdSelectedConcepts  = new Set(),  icdDropdownOrder  = [];
+    procLoader.style.display  = "inline";
+    icdLoader.style.display = "inline";
 
-let procSelectedRows = new Set(),      icdSelectedRows   = new Set();
+    Promise.all([
+      fetch("/get_procedure_data/").then(r=>r.json()),
+      fetch("/get_icd10cpt_data/").then(r=>r.json())
+    ])
+    .then(([procJ,icdJ])=>{
+      procedureData = procJ.rows||[];  icdData = icdJ.rows||[];
+      filteredProcData  = procedureData.slice();
+      filteredIcdData = icdData.slice();
+      procLoader.style.display = icdLoader.style.display = "none";
+      procDropdownSection.style.display       = "block";
+      icdDropdownSection.style.display        = "block";
+      procTableSection.style.display          = "block";
+      icdTableSection.style.display           = "block";
+      procClearTableBtn.style.display         = "inline-block";
+      icdClearTableBtn.style.display          = "inline-block";
+      procCaptureSection.style.display        = "block";
+      icdCaptureSection.style.display         = "block";
+      procPreviewSection.style.display        = "block";
+      icdPreviewSection.style.display         = "block";
+      procUpdateTableBtn.style.display        = "inline-block";
 
-var procPreviewColumns = []; // { colName, conceptNames[], procedureIds[] }
-var icdPreviewColumns  = []; // { colName, conceptNames[], icd10cptIds[] }
-
-/* ---- DOM ---- */
-const procLoader = document.getElementById("proc-loader");
-const icdLoader  = document.getElementById("icd-loader");
-
-const procedureSearchInput = document.getElementById("procedure-search-input");
-const icdSearchInput       = document.getElementById("icd-search-input");
-const procUpdateTableBtn   = document.getElementById("procUpdateTableBtn");
-
-const dropdownFlex3  = document.getElementById("dropdownFlex3");
-const tableFlex3     = document.getElementById("tableFlex3");
-const captureFlex3   = document.getElementById("captureFlex3");
-const previewFlex3   = document.getElementById("previewFlex3");
-
-/* Procedure dropdown + tags */
-const procDropdownSection = document.getElementById("procedure-dropdown-section");
-const procDropdownPanel   = document.getElementById("procedure-dropdown-panel");
-const procTagContainer    = document.getElementById("procedure-tag-container");
-
-/* ICD dropdown + tags */
-const icdDropdownSection = document.getElementById("icd-dropdown-section");
-const icdDropdownPanel   = document.getElementById("icd-dropdown-panel");
-const icdTagContainer    = document.getElementById("icd-tag-container");
-
-/* Procedure table */
-const procTableSection  = document.getElementById("procedure-table-section");
-const procTableBody     = document.getElementById("procedure-table-body");
-const procClearTableBtn = document.getElementById("procedureClearTableBtn");
-
-/* ICD table */
-const icdTableSection   = document.getElementById("icd-table-section");
-const icdTableBody      = document.getElementById("icd-table-body");
-const icdClearTableBtn  = document.getElementById("icdClearTableBtn");
-
-/* Procedure capture */
-const procCaptureSection = document.getElementById("procedure-capture-section");
-const procColNameInput   = document.getElementById("procedure-col-name");
-const procCaptureBtn     = document.getElementById("procedureCaptureBtn");
-const procNextColumnBtn  = document.getElementById("procedureNextColumnBtn");
-
-/* ICD capture */
-const icdCaptureSection = document.getElementById("icd-capture-section");
-const icdColNameInput   = document.getElementById("icd-col-name");
-const icdCaptureBtn     = document.getElementById("icdCaptureBtn");
-const icdNextColumnBtn  = document.getElementById("icdNextColumnBtn");
-
-/* Procedure preview */
-const procPreviewSection = document.getElementById("procedure-preview-section");
-const procPreviewBox     = document.getElementById("procedure-preview-box");
-
-/* ICD preview */
-const icdPreviewSection = document.getElementById("icd-preview-section");
-const icdPreviewBox     = document.getElementById("icd-preview-box");
-
-/* New session */
-const procNewSessionBtn = document.getElementById("procNewSessionBtn");
-
-/* ------------ helpers ------------ */
-function showWrappers3() {
-  dropdownFlex3.style.display = "flex";
-  tableFlex3.style.display    = "flex";
-  captureFlex3.style.display  = "flex";
-  previewFlex3.style.display  = "flex";
-}
-function makeTag(txt, onRemove){
-  const d = document.createElement("div");
-  d.classList.add("tag");
-  const s = document.createElement("span");
-  s.textContent = txt;
-  const x = document.createElement("span");
-  x.classList.add("remove-tag");
-  x.textContent = "X";
-  x.addEventListener("click", onRemove);
-  d.appendChild(s); d.appendChild(x);
-  return d;
-}
-
-/* ---- auto‑load datasets at startup ---- */
-window.addEventListener("DOMContentLoaded", () => {
-  procLoader.style.display = "inline";
-  icdLoader.style.display  = "inline";
-
-  Promise.all([
-    fetch("/get_procedure_data/").then(r=>r.json()),
-    fetch("/get_icd10cpt_data/").then(r=>r.json())
-  ])
-  .then(([procJson, icdJson])=>{
-    procedureData = procJson.rows || [];
-    icdData       = icdJson.rows  || [];
-    filteredProcData = procedureData.slice();
-    filteredIcdData  = icdData.slice();
-
-    procLoader.style.display = "none";
-    icdLoader.style.display  = "none";
-
-    if (!procedureData.length && !icdData.length){
-      alert("Datasets not found on server.");
-      return;
-    }
-
-    // reveal UI sections & buttons
-    procDropdownSection.style.display       = "block";
-    icdDropdownSection.style.display        = "block";
-    procTableSection.style.display          = "block";
-    icdTableSection.style.display           = "block";
-    procClearTableBtn.style.display         = "inline-block";
-    icdClearTableBtn.style.display          = "inline-block";
-    procCaptureSection.style.display        = "block";
-    icdCaptureSection.style.display         = "block";
-    procPreviewSection.style.display        = "block";
-    icdPreviewSection.style.display         = "block";
-    procUpdateTableBtn.style.display        = "inline-block";
-
-    showWrappers3();
-    renderProcDropdown("");
-    renderIcdDropdown("");
-    renderProcTable();
-    renderIcdTable();
-  })
-  .catch(err=>{
-    procLoader.textContent = icdLoader.textContent = "Load error";
-    console.error(err);
-  });
-});
-
-/* ------------------------------------------------------------
-   per‑side search bars → filter own dropdown only
------------------------------------------------------------- */
-procedureSearchInput.addEventListener(
-  "input", debounce(() => { renderProcDropdown(procedureSearchInput.value.toLowerCase()); }, 250)
-);
-icdSearchInput.addEventListener(
-  "input", debounce(() => { renderIcdDropdown(icdSearchInput.value.toLowerCase()); }, 250)
-);
-
-function renderProcDropdown(searchVal){
-  if (!procedureData.length) return;
-  procDropdownPanel.innerHTML = "";
-  const set = new Set();
-
-  procedureData.forEach(r => {
-    if (!searchVal ||
-        r.order_description.toLowerCase().includes(searchVal) ||
-        r.order_code.toLowerCase().includes(searchVal)) {
-      set.add(r.order_description);               // ← description, not concept_name
-    }
-  });
-
-  const arr = [...set].sort();
-  procDropdownPanel.style.display = arr.length ? "block" : "none";
-
-  arr.forEach(desc => {
-    const di = document.createElement("div");
-    di.classList.add("dropdown-item");
-    di.textContent = desc;
-
-    if (procSelectedConcepts.has(desc)) {         // selected set is now descriptions
-      di.style.background = "#4caf50";
-      di.style.color      = "#000";
-    }
-
-    di.addEventListener("click", e => {
-      const multi = e.ctrlKey || e.metaKey;
-      if (!multi) {
-        if (!procSelectedConcepts.has(desc)) {
-          procSelectedConcepts.add(desc);
-          procDropdownOrder.push(desc);
-        }
-      } else {
-        if (procSelectedConcepts.has(desc)) {
-          procSelectedConcepts.delete(desc);
-          procDropdownOrder = procDropdownOrder.filter(d => d !== desc);
-        } else {
-          procSelectedConcepts.add(desc);
-          procDropdownOrder.push(desc);
-        }
-      }
-      renderProcDropdown(searchVal);
-      renderProcTags();
-    });
-
-    procDropdownPanel.appendChild(di);
-  });
-}
-function renderProcTags(){
-  if(procSelectedConcepts.size===0){
-    procTagContainer.style.display="none"; procTagContainer.innerHTML=""; return;
-  }
-  procTagContainer.style.display="flex"; procTagContainer.innerHTML="";
-  procDropdownOrder.forEach(name=>{
-    if(!procSelectedConcepts.has(name)) return;
-    const tag = makeTag(name, ()=>{
-      procSelectedConcepts.delete(name);
-      procDropdownOrder=procDropdownOrder.filter(n=>n!==name);
-      renderProcDropdown(procedureSearchInput.value.toLowerCase());
-      renderProcTags();
-    });
-    procTagContainer.appendChild(tag);
-  });
-}
-
-function renderIcdDropdown(searchVal){
-  if (!icdData.length) return;
-  icdDropdownPanel.innerHTML = "";
-  const set = new Set();
-
-  icdData.forEach(r => {
-    if (!searchVal ||
-        r.procedure_description.toLowerCase().includes(searchVal) ||
-        r.procedure_code.toLowerCase().includes(searchVal)) {
-      set.add(r.procedure_description);           // ← description
-    }
-  });
-
-  const arr = [...set].sort();
-  icdDropdownPanel.style.display = arr.length ? "block" : "none";
-
-  arr.forEach(desc => {
-    const di = document.createElement("div");
-    di.classList.add("dropdown-item");
-    di.textContent = desc;
-
-    if (icdSelectedConcepts.has(desc)) {
-      di.style.background = "#4caf50";
-      di.style.color      = "#000";
-    }
-
-    di.addEventListener("click", e => {
-      const multi = e.ctrlKey || e.metaKey;
-      if (!multi) {
-        if (!icdSelectedConcepts.has(desc)) {
-          icdSelectedConcepts.add(desc);
-          icdDropdownOrder.push(desc);
-        }
-      } else {
-        if (icdSelectedConcepts.has(desc)) {
-          icdSelectedConcepts.delete(desc);
-          icdDropdownOrder = icdDropdownOrder.filter(d => d !== desc);
-        } else {
-          icdSelectedConcepts.add(desc);
-          icdDropdownOrder.push(desc);
-        }
-      }
-      renderIcdDropdown(searchVal);
-      renderIcdTags();
-    });
-
-    icdDropdownPanel.appendChild(di);
-  });
-}
-function renderIcdTags(){
-  if(icdSelectedConcepts.size===0){
-    icdTagContainer.style.display="none"; icdTagContainer.innerHTML=""; return;
-  }
-  icdTagContainer.style.display="flex"; icdTagContainer.innerHTML="";
-  icdDropdownOrder.forEach(name=>{
-    if(!icdSelectedConcepts.has(name)) return;
-    const tag = makeTag(name, ()=>{
-      icdSelectedConcepts.delete(name);
-      icdDropdownOrder=icdDropdownOrder.filter(n=>n!==name);
-      renderIcdDropdown(icdSearchInput.value.toLowerCase());
-      renderIcdTags();
-    });
-    icdTagContainer.appendChild(tag);
-  });
-}
-
-/* ----------------------------------------------------------------
-   UPDATE TABLE  – filter if tags exist, else show all
----------------------------------------------------------------- */
-procUpdateTableBtn.addEventListener("click", ()=>{
-
-/* Procedure side */
-if (procedureData.length) {
-  if (procSelectedConcepts.size) {
-    filteredProcData = procedureData.filter(r =>
-      procSelectedConcepts.has(r.order_description)
-    );
-  } else {
-    /* no tags ⇒ restore full table */
-    filteredProcData = procedureData.slice();
-  }
-  renderProcTable();
-}
-
-/* ICD side */
-if (icdData.length) {
-  if (icdSelectedConcepts.size) {
-    filteredIcdData = icdData.filter(r =>
-      icdSelectedConcepts.has(r.procedure_description)
-    );
-  } else {
-    filteredIcdData = icdData.slice();
-  }
-  renderIcdTable();
-}
-});
-
-/* ----------------------------------------------------------------
-   TABLE RENDERERS
----------------------------------------------------------------- */
-function renderProcTable(){
-  procTableSection.style.display = filteredProcData.length?"block":"none";
-  procTableSection.querySelector('.table-container').style.display =
-      filteredProcData.length?"block":"none";
-  procTableBody.innerHTML="";
-  filteredProcData.forEach(row=>{
-    const tr=document.createElement("tr");
-    // select box
-    const tdChk=document.createElement("td"); tdChk.classList.add("select-col");
-    const cb=document.createElement("input"); cb.type="checkbox";
-    cb.checked = procSelectedRows.has(row.rowIndex);
-    cb.addEventListener("change", ()=>{
-      if (cb.checked) {
-        const desc = row.order_description;
-        filteredProcData.forEach(r => {
-          if (r.order_description === desc) procSelectedRows.add(r.rowIndex);});
-        } else {
-          procSelectedRows.delete(row.rowIndex);
-        }
+      showWrappers3();
+      renderProcDropdown("");
+      renderIcdDropdown("");
       renderProcTable();
-    });
-    tdChk.appendChild(cb); tr.appendChild(tdChk);
-    // visible cols
-    ["concept_name","concept_id","order_code","order_description",
-     "frequency","percentage","domain_id","vocabulary_id",
-     "concept_code","concept_class_id"]
-     .forEach(col=>{
-      const td=document.createElement("td");
-      if(col==="frequency"||col==="percentage") td.classList.add("narrow");
-      td.textContent=row[col];
-      tr.appendChild(td);
-    });
-    procTableBody.appendChild(tr);
-  });
-  document.dispatchEvent(new Event("refresh-tables"));
-}
-function renderIcdTable(){
-  icdTableSection.style.display = filteredIcdData.length?"block":"none";
-  icdTableSection.querySelector('.table-container').style.display =
-      filteredIcdData.length?"block":"none";
-  icdTableBody.innerHTML="";
-  filteredIcdData.forEach(row=>{
-    const tr=document.createElement("tr");
-    const tdChk=document.createElement("td"); tdChk.classList.add("select-col");
-    const cb=document.createElement("input"); cb.type="checkbox";
-    cb.checked = icdSelectedRows.has(row.rowIndex);
-    cb.addEventListener("change", ()=>{
-      if (cb.checked) {
-        const desc = row.procedure_description;
-        filteredIcdData.forEach(r => {
-          if (r.procedure_description === desc) icdSelectedRows.add(r.rowIndex);});
-        } else {
-          icdSelectedRows.delete(row.rowIndex);
-        }
       renderIcdTable();
-    });
-    tdChk.appendChild(cb); tr.appendChild(tdChk);
-    ["concept_name","concept_id","code","procedure_code","procedure_description",
-     "frequency","percentage","domain_id","vocabulary_id",
-     "concept_code","concept_class_id"]
-     .forEach(col=>{
-      const td=document.createElement("td");
-      if(col==="code"||col==="frequency"||col==="percentage") td.classList.add("narrow");
-      td.textContent=row[col];
-      tr.appendChild(td);
-    });
-    icdTableBody.appendChild(tr);
-  });
-  document.dispatchEvent(new Event("refresh-tables"));
-}
-
-/* ----------------------------------------------------------------
-   CLEAR TABLE buttons
----------------------------------------------------------------- */
-procClearTableBtn.addEventListener("click",()=>{ procSelectedRows.clear(); renderProcTable(); });
-icdClearTableBtn.addEventListener("click", ()=>{ icdSelectedRows.clear(); renderIcdTable(); });
-
-/* ----------------------------------------------------------------
-   NEXT COLUMN (reset side only)
----------------------------------------------------------------- */
-procNextColumnBtn.addEventListener("click", ()=>{
-  procSelectedConcepts.clear(); procDropdownOrder=[];
-  procSelectedRows.clear();     filteredProcData=procedureData.slice();
-  procColNameInput.value="";
-  procedureSearchInput.value=""; icdSearchInput.value=""; renderProcDropdown(""); renderProcTags(); renderProcTable();
-  renderIcdDropdown("");  renderIcdTags();
-});
-icdNextColumnBtn.addEventListener("click", ()=>{
-  icdSelectedConcepts.clear(); icdDropdownOrder=[];
-  icdSelectedRows.clear();     filteredIcdData=icdData.slice();
-  icdColNameInput.value="";
-  procedureSearchInput.value=""; icdSearchInput.value=""; renderIcdDropdown(""); renderIcdTags(); renderIcdTable();
-  renderProcDropdown(""); renderProcTags();
-});
-
-/* ----------------------------------------------------------------
-   CAPTURE buttons
----------------------------------------------------------------- */
-procCaptureBtn.addEventListener("click", ()=>{
-  const colName=procColNameInput.value.trim();
-  if(!colName){ alert("Enter column name (Procedure)."); return; }
-  const descs = [], ids = [];
-  Array.from(procSelectedRows).forEach(idx => {
-  const r = procedureData.find(x => x.rowIndex === idx);
-  if (r) { descs.push(r.order_description); ids.push(r.procedure_id); }
-});
-  if(!ids.length){ alert("No Procedure rows selected."); return;}
-  const obj={ colName, conceptNames:descs, procedureIds:ids, dropdownOrder:[...procDropdownOrder] };
-  const ix=procPreviewColumns.findIndex(c=>c.colName===colName);
-  if(ix>=0) procPreviewColumns[ix]=obj; else procPreviewColumns.push(obj);
-  renderProcPreview();
-});
-icdCaptureBtn.addEventListener("click", ()=>{
-  const colName=icdColNameInput.value.trim();
-  if(!colName){ alert("Enter column name (ICD10 CPT)."); return; }
-  const descs = [], ids = [];
-  Array.from(icdSelectedRows).forEach(idx=>{
-    const r=icdData.find(x=>x.rowIndex===idx);
-    if(r){ descs.push(r.procedure_description); ids.push(r.procedure_id); }
-  });
-  if(!ids.length){ alert("No ICD rows selected."); return;}
-  const obj={ colName, conceptNames:descs, icd10cptIds:ids, dropdownOrder:[...icdDropdownOrder] };
-  const ix=icdPreviewColumns.findIndex(c=>c.colName===colName);
-  if(ix>=0) icdPreviewColumns[ix]=obj; else icdPreviewColumns.push(obj);
-  renderIcdPreview();
-});
-
-/* ----------------------------------------------------------------
-   PREVIEW renderers
----------------------------------------------------------------- */
-function makePreview(colArray, boxEl, onClick){
-  let html='<table class="preview-table"><thead><tr>';
-  colArray.forEach(c=>{ html+=`<th><span class="col-name-link" data-col="${c.colName}">${c.colName}</span></th>`; });
-  html+='</tr></thead><tbody>';
-  let max=0; colArray.forEach(c=>{ if(c.conceptNames.length>max) max=c.conceptNames.length; });
-  for(let r=0;r<max;r++){
-    html+='<tr>'; colArray.forEach(c=>{ html+=`<td>${c.conceptNames[r]||''}</td>`; }); html+='</tr>';
+    })
+    .catch(err=>{ procLoader.textContent=icdLoader.textContent="Load error"; console.error(err); });
   }
-  html+='</tbody></table>'; boxEl.innerHTML=html;
-  boxEl.querySelectorAll('.col-name-link').forEach(sp=>{
-    sp.addEventListener('click',()=>onClick(sp.dataset.col));
-  });
-}
-function renderProcPreview(){
-  if(!procPreviewColumns.length){ procPreviewBox.innerHTML="<em>No columns captured yet.</em>"; return; }
-  makePreview(procPreviewColumns, procPreviewBox, colName=>{
-    const obj=procPreviewColumns.find(c=>c.colName===colName); if(!obj) return;
-    procColNameInput.value=obj.colName;
-    procSelectedConcepts=new Set(obj.conceptNames); procDropdownOrder=[...obj.dropdownOrder];
-    filteredProcData=procedureData.filter(r=>obj.procedureIds.includes(r.procedure_id));
-    procSelectedRows.clear(); filteredProcData.forEach(r=>procSelectedRows.add(r.rowIndex));
-    renderProcDropdown(procedureSearchInput.value.trim().toLowerCase());
-    renderProcTags(); renderProcTable();
-  });
-}
-function renderIcdPreview(){
-  if(!icdPreviewColumns.length){ icdPreviewBox.innerHTML="<em>No columns captured yet.</em>"; return; }
-  makePreview(icdPreviewColumns, icdPreviewBox, colName=>{
-    const obj=icdPreviewColumns.find(c=>c.colName===colName); if(!obj) return;
-    icdColNameInput.value=obj.colName;
-    icdSelectedConcepts=new Set(obj.conceptNames); icdDropdownOrder=[...obj.dropdownOrder];
-    filteredIcdData=icdData.filter(r=>obj.icd10cptIds.includes(r.procedure_id));
-    icdSelectedRows.clear(); filteredIcdData.forEach(r=>icdSelectedRows.add(r.rowIndex));
-    renderIcdDropdown(icdSearchInput.value.trim().toLowerCase());
-    renderIcdTags(); renderIcdTable();
-  });
-}
 
-/* ----------------------------------------------------------------
-   NEW SESSION
----------------------------------------------------------------- */
-procNewSessionBtn.addEventListener("click", ()=>{
-  fetch("/new_session/",{method:"POST"})
-    .then(r=>r.json())
-    .then(j=>{ if(j.ok) window.location.reload(); else alert("Error clearing session"); })
-    .catch(err=>alert("Error clearing session: "+err));
-});
+  /* ----------------------------------------------------------------
+    TAB #3 :  Procedure / ICD10 CPT
+  ---------------------------------------------------------------- */
+  let procedureData = [],           icdData = [];
+  let filteredProcData = [],        filteredIcdData = [];
+
+  let procSelectedConcepts = new Set(),  procDropdownOrder = [];
+  let icdSelectedConcepts  = new Set(),  icdDropdownOrder  = [];
+
+  let procSelectedRows = new Set(),      icdSelectedRows   = new Set();
+
+  var procPreviewColumns = []; // { colName, conceptNames[], procedureIds[] }
+  var icdPreviewColumns  = []; // { colName, conceptNames[], icd10cptIds[] }
+
+  /* ---- DOM ---- */
+  const procLoader = document.getElementById("proc-loader");
+  const icdLoader  = document.getElementById("icd-loader");
+
+  const procedureSearchInput = document.getElementById("procedure-search-input");
+  const icdSearchInput       = document.getElementById("icd-search-input");
+  const procUpdateTableBtn   = document.getElementById("procUpdateTableBtn");
+
+  const dropdownFlex3  = document.getElementById("dropdownFlex3");
+  const tableFlex3     = document.getElementById("tableFlex3");
+  const captureFlex3   = document.getElementById("captureFlex3");
+  const previewFlex3   = document.getElementById("previewFlex3");
+
+  /* Procedure dropdown + tags */
+  const procDropdownSection = document.getElementById("procedure-dropdown-section");
+  const procDropdownPanel   = document.getElementById("procedure-dropdown-panel");
+  const procTagContainer    = document.getElementById("procedure-tag-container");
+
+  /* ICD dropdown + tags */
+  const icdDropdownSection = document.getElementById("icd-dropdown-section");
+  const icdDropdownPanel   = document.getElementById("icd-dropdown-panel");
+  const icdTagContainer    = document.getElementById("icd-tag-container");
+
+  /* Procedure table */
+  const procTableSection  = document.getElementById("procedure-table-section");
+  const procTableBody     = document.getElementById("procedure-table-body");
+  const procClearTableBtn = document.getElementById("procedureClearTableBtn");
+
+  /* ICD table */
+  const icdTableSection   = document.getElementById("icd-table-section");
+  const icdTableBody      = document.getElementById("icd-table-body");
+  const icdClearTableBtn  = document.getElementById("icdClearTableBtn");
+
+  /* Procedure capture */
+  const procCaptureSection = document.getElementById("procedure-capture-section");
+  const procColNameInput   = document.getElementById("procedure-col-name");
+  const procCaptureBtn     = document.getElementById("procedureCaptureBtn");
+  const procNextColumnBtn  = document.getElementById("procedureNextColumnBtn");
+
+  /* ICD capture */
+  const icdCaptureSection = document.getElementById("icd-capture-section");
+  const icdColNameInput   = document.getElementById("icd-col-name");
+  const icdCaptureBtn     = document.getElementById("icdCaptureBtn");
+  const icdNextColumnBtn  = document.getElementById("icdNextColumnBtn");
+
+  /* Procedure preview */
+  const procPreviewSection = document.getElementById("procedure-preview-section");
+  const procPreviewBox     = document.getElementById("procedure-preview-box");
+
+  /* ICD preview */
+  const icdPreviewSection = document.getElementById("icd-preview-section");
+  const icdPreviewBox     = document.getElementById("icd-preview-box");
+
+  /* New session */
+  const procNewSessionBtn = document.getElementById("procNewSessionBtn");
+
+  /* ------------ helpers ------------ */
+  function showWrappers3() {
+    dropdownFlex3.style.display = "flex";
+    tableFlex3.style.display    = "flex";
+    captureFlex3.style.display  = "flex";
+    previewFlex3.style.display  = "flex";
+  }
+  function makeTag(txt, onRemove){
+    const d = document.createElement("div");
+    d.classList.add("tag");
+    const s = document.createElement("span");
+    s.textContent = txt;
+    const x = document.createElement("span");
+    x.classList.add("remove-tag");
+    x.textContent = "X";
+    x.addEventListener("click", onRemove);
+    d.appendChild(s); d.appendChild(x);
+    return d;
+  }
+
+  /* ------------------------------------------------------------
+    per‑side search bars → filter own dropdown only
+  ------------------------------------------------------------ */
+  procedureSearchInput.addEventListener(
+    "input", debounce(() => { renderProcDropdown(procedureSearchInput.value.toLowerCase()); }, 250)
+  );
+  icdSearchInput.addEventListener(
+    "input", debounce(() => { renderIcdDropdown(icdSearchInput.value.toLowerCase()); }, 250)
+  );
+
+  function renderProcDropdown(searchVal){
+    if (!procedureData.length) return;
+    procDropdownPanel.innerHTML = "";
+    const set = new Set();
+
+    procedureData.forEach(r => {
+      if (!searchVal ||
+          r.order_description.toLowerCase().includes(searchVal) ||
+          r.order_code.toLowerCase().includes(searchVal)) {
+        set.add(r.order_description);               // ← description, not concept_name
+      }
+    });
+
+    const arr = [...set].sort();
+    procDropdownPanel.style.display = arr.length ? "block" : "none";
+
+    arr.forEach(desc => {
+      const di = document.createElement("div");
+      di.classList.add("dropdown-item");
+      di.textContent = desc;
+
+      if (procSelectedConcepts.has(desc)) {         // selected set is now descriptions
+        di.style.background = "#4caf50";
+        di.style.color      = "#000";
+      }
+
+      di.addEventListener("click", e => {
+        const multi = e.ctrlKey || e.metaKey;
+        if (!multi) {
+          if (!procSelectedConcepts.has(desc)) {
+            procSelectedConcepts.add(desc);
+            procDropdownOrder.push(desc);
+          }
+        } else {
+          if (procSelectedConcepts.has(desc)) {
+            procSelectedConcepts.delete(desc);
+            procDropdownOrder = procDropdownOrder.filter(d => d !== desc);
+          } else {
+            procSelectedConcepts.add(desc);
+            procDropdownOrder.push(desc);
+          }
+        }
+        renderProcDropdown(searchVal);
+        renderProcTags();
+      });
+
+      procDropdownPanel.appendChild(di);
+    });
+  }
+  function renderProcTags(){
+    if(procSelectedConcepts.size===0){
+      procTagContainer.style.display="none"; procTagContainer.innerHTML=""; return;
+    }
+    procTagContainer.style.display="flex"; procTagContainer.innerHTML="";
+    procDropdownOrder.forEach(name=>{
+      if(!procSelectedConcepts.has(name)) return;
+      const tag = makeTag(name, ()=>{
+        procSelectedConcepts.delete(name);
+        procDropdownOrder=procDropdownOrder.filter(n=>n!==name);
+        renderProcDropdown(procedureSearchInput.value.toLowerCase());
+        renderProcTags();
+      });
+      procTagContainer.appendChild(tag);
+    });
+  }
+
+  function renderIcdDropdown(searchVal){
+    if (!icdData.length) return;
+    icdDropdownPanel.innerHTML = "";
+    const set = new Set();
+
+    icdData.forEach(r => {
+      if (!searchVal ||
+          r.procedure_description.toLowerCase().includes(searchVal) ||
+          r.procedure_code.toLowerCase().includes(searchVal)) {
+        set.add(r.procedure_description);           // ← description
+      }
+    });
+
+    const arr = [...set].sort();
+    icdDropdownPanel.style.display = arr.length ? "block" : "none";
+
+    arr.forEach(desc => {
+      const di = document.createElement("div");
+      di.classList.add("dropdown-item");
+      di.textContent = desc;
+
+      if (icdSelectedConcepts.has(desc)) {
+        di.style.background = "#4caf50";
+        di.style.color      = "#000";
+      }
+
+      di.addEventListener("click", e => {
+        const multi = e.ctrlKey || e.metaKey;
+        if (!multi) {
+          if (!icdSelectedConcepts.has(desc)) {
+            icdSelectedConcepts.add(desc);
+            icdDropdownOrder.push(desc);
+          }
+        } else {
+          if (icdSelectedConcepts.has(desc)) {
+            icdSelectedConcepts.delete(desc);
+            icdDropdownOrder = icdDropdownOrder.filter(d => d !== desc);
+          } else {
+            icdSelectedConcepts.add(desc);
+            icdDropdownOrder.push(desc);
+          }
+        }
+        renderIcdDropdown(searchVal);
+        renderIcdTags();
+      });
+
+      icdDropdownPanel.appendChild(di);
+    });
+  }
+  function renderIcdTags(){
+    if(icdSelectedConcepts.size===0){
+      icdTagContainer.style.display="none"; icdTagContainer.innerHTML=""; return;
+    }
+    icdTagContainer.style.display="flex"; icdTagContainer.innerHTML="";
+    icdDropdownOrder.forEach(name=>{
+      if(!icdSelectedConcepts.has(name)) return;
+      const tag = makeTag(name, ()=>{
+        icdSelectedConcepts.delete(name);
+        icdDropdownOrder=icdDropdownOrder.filter(n=>n!==name);
+        renderIcdDropdown(icdSearchInput.value.toLowerCase());
+        renderIcdTags();
+      });
+      icdTagContainer.appendChild(tag);
+    });
+  }
+
+  /* ----------------------------------------------------------------
+    UPDATE TABLE  – filter if tags exist, else show all
+  ---------------------------------------------------------------- */
+  procUpdateTableBtn.addEventListener("click", ()=>{
+
+  /* Procedure side */
+  if (procedureData.length) {
+    if (procSelectedConcepts.size) {
+      filteredProcData = procedureData.filter(r =>
+        procSelectedConcepts.has(r.order_description)
+      );
+    } else {
+      /* no tags ⇒ restore full table */
+      filteredProcData = procedureData.slice();
+    }
+    renderProcTable();
+  }
+
+  /* ICD side */
+  if (icdData.length) {
+    if (icdSelectedConcepts.size) {
+      filteredIcdData = icdData.filter(r =>
+        icdSelectedConcepts.has(r.procedure_description)
+      );
+    } else {
+      filteredIcdData = icdData.slice();
+    }
+    renderIcdTable();
+  }
+  });
+
+  /* ----------------------------------------------------------------
+    TABLE RENDERERS
+  ---------------------------------------------------------------- */
+  function renderProcTable(){
+    procTableSection.style.display = filteredProcData.length?"block":"none";
+    procTableSection.querySelector('.table-container').style.display =
+        filteredProcData.length?"block":"none";
+    procTableBody.innerHTML="";
+    filteredProcData.forEach(row=>{
+      const tr=document.createElement("tr");
+      // select box
+      const tdChk=document.createElement("td"); tdChk.classList.add("select-col");
+      const cb=document.createElement("input"); cb.type="checkbox";
+      cb.checked = procSelectedRows.has(row.rowIndex);
+      cb.addEventListener("change", ()=>{
+        if (cb.checked) {
+          const desc = row.order_description;
+          filteredProcData.forEach(r => {
+            if (r.order_description === desc) procSelectedRows.add(r.rowIndex);});
+          } else {
+            procSelectedRows.delete(row.rowIndex);
+          }
+        renderProcTable();
+      });
+      tdChk.appendChild(cb); tr.appendChild(tdChk);
+      // visible cols
+      ["concept_name","concept_id","order_code","order_description",
+      "frequency","percentage","domain_id","vocabulary_id",
+      "concept_code","concept_class_id"]
+      .forEach(col=>{
+        const td=document.createElement("td");
+        if(col==="frequency"||col==="percentage") td.classList.add("narrow");
+        td.textContent=row[col];
+        td.title      =row[col];
+        tr.appendChild(td);
+      });
+      procTableBody.appendChild(tr);
+    });
+    document.dispatchEvent(new Event("refresh-tables"));
+  }
+  function renderIcdTable(){
+    icdTableSection.style.display = filteredIcdData.length?"block":"none";
+    icdTableSection.querySelector('.table-container').style.display =
+        filteredIcdData.length?"block":"none";
+    icdTableBody.innerHTML="";
+    filteredIcdData.forEach(row=>{
+      const tr=document.createElement("tr");
+      const tdChk=document.createElement("td"); tdChk.classList.add("select-col");
+      const cb=document.createElement("input"); cb.type="checkbox";
+      cb.checked = icdSelectedRows.has(row.rowIndex);
+      cb.addEventListener("change", ()=>{
+        if (cb.checked) {
+          const desc = row.procedure_description;
+          filteredIcdData.forEach(r => {
+            if (r.procedure_description === desc) icdSelectedRows.add(r.rowIndex);});
+          } else {
+            icdSelectedRows.delete(row.rowIndex);
+          }
+        renderIcdTable();
+      });
+      tdChk.appendChild(cb); tr.appendChild(tdChk);
+      ["concept_name","concept_id","code","procedure_code","procedure_description",
+      "frequency","percentage","domain_id","vocabulary_id",
+      "concept_code","concept_class_id"]
+      .forEach(col=>{
+        const td=document.createElement("td");
+        if(col==="code"||col==="frequency"||col==="percentage") td.classList.add("narrow");
+        td.textContent=row[col];
+        td.title      =row[col];
+        tr.appendChild(td);
+      });
+      icdTableBody.appendChild(tr);
+    });
+    document.dispatchEvent(new Event("refresh-tables"));
+  }
+
+  /* ----------------------------------------------------------------
+    CLEAR TABLE buttons
+  ---------------------------------------------------------------- */
+  procClearTableBtn.addEventListener("click",()=>{ procSelectedRows.clear(); renderProcTable(); });
+  icdClearTableBtn.addEventListener("click", ()=>{ icdSelectedRows.clear(); renderIcdTable(); });
+
+  /* ----------------------------------------------------------------
+    NEXT COLUMN (reset side only)
+  ---------------------------------------------------------------- */
+  procNextColumnBtn.addEventListener("click", ()=>{
+    procSelectedConcepts.clear(); procDropdownOrder=[];
+    procSelectedRows.clear();     filteredProcData=procedureData.slice();
+    procColNameInput.value="";
+    procedureSearchInput.value=""; icdSearchInput.value=""; renderProcDropdown(""); renderProcTags(); renderProcTable();
+    renderIcdDropdown("");  renderIcdTags();
+  });
+  icdNextColumnBtn.addEventListener("click", ()=>{
+    icdSelectedConcepts.clear(); icdDropdownOrder=[];
+    icdSelectedRows.clear();     filteredIcdData=icdData.slice();
+    icdColNameInput.value="";
+    procedureSearchInput.value=""; icdSearchInput.value=""; renderIcdDropdown(""); renderIcdTags(); renderIcdTable();
+    renderProcDropdown(""); renderProcTags();
+  });
+
+  /* ----------------------------------------------------------------
+    CAPTURE buttons
+  ---------------------------------------------------------------- */
+  procCaptureBtn.addEventListener("click", ()=>{
+    const colName=procColNameInput.value.trim();
+    if(!colName){ alert("Enter column name (Procedure)."); return; }
+    const descs = [], ids = [];
+    Array.from(procSelectedRows).forEach(idx => {
+    const r = procedureData.find(x => x.rowIndex === idx);
+    if (r) { descs.push(r.order_description); ids.push(r.procedure_id); }
+  });
+    if(!ids.length){ alert("No Procedure rows selected."); return;}
+    const obj={ colName, conceptNames:descs, procedureIds:ids, dropdownOrder:[...procDropdownOrder] };
+    const ix=procPreviewColumns.findIndex(c=>c.colName===colName);
+    if(ix>=0) procPreviewColumns[ix]=obj; else procPreviewColumns.push(obj);
+    renderProcPreview();
+  });
+  icdCaptureBtn.addEventListener("click", ()=>{
+    const colName=icdColNameInput.value.trim();
+    if(!colName){ alert("Enter column name (ICD10 CPT)."); return; }
+    const descs = [], ids = [];
+    Array.from(icdSelectedRows).forEach(idx=>{
+      const r=icdData.find(x=>x.rowIndex===idx);
+      if(r){ descs.push(r.procedure_description); ids.push(r.procedure_id); }
+    });
+    if(!ids.length){ alert("No ICD rows selected."); return;}
+    const obj={ colName, conceptNames:descs, icd10cptIds:ids, dropdownOrder:[...icdDropdownOrder] };
+    const ix=icdPreviewColumns.findIndex(c=>c.colName===colName);
+    if(ix>=0) icdPreviewColumns[ix]=obj; else icdPreviewColumns.push(obj);
+    renderIcdPreview();
+  });
+
+  /* ----------------------------------------------------------------
+    PREVIEW renderers
+  ---------------------------------------------------------------- */
+  function makePreview(colArray, boxEl, onClick){
+    let html='<table class="preview-table"><thead><tr>';
+    colArray.forEach(c=>{ html+=`<th><span class="col-name-link" data-col="${c.colName}">${c.colName}</span></th>`; });
+    html+='</tr></thead><tbody>';
+    let max=0; colArray.forEach(c=>{ if(c.conceptNames.length>max) max=c.conceptNames.length; });
+    for(let r=0;r<max;r++){
+      html+='<tr>'; colArray.forEach(c=>{ html+=`<td>${c.conceptNames[r]||''}</td>`; }); html+='</tr>';
+    }
+    html+='</tbody></table>'; boxEl.innerHTML=html;
+    boxEl.querySelectorAll('.col-name-link').forEach(sp=>{
+      sp.addEventListener('click',()=>onClick(sp.dataset.col));
+    });
+  }
+  function renderProcPreview(){
+    if(!procPreviewColumns.length){ procPreviewBox.innerHTML="<em>No columns captured yet.</em>"; return; }
+    makePreview(procPreviewColumns, procPreviewBox, colName=>{
+      const obj=procPreviewColumns.find(c=>c.colName===colName); if(!obj) return;
+      procColNameInput.value=obj.colName;
+      procSelectedConcepts=new Set(obj.conceptNames); procDropdownOrder=[...obj.dropdownOrder];
+      filteredProcData=procedureData.filter(r=>obj.procedureIds.includes(r.procedure_id));
+      procSelectedRows.clear(); filteredProcData.forEach(r=>procSelectedRows.add(r.rowIndex));
+      renderProcDropdown(procedureSearchInput.value.trim().toLowerCase());
+      renderProcTags(); renderProcTable();
+    });
+  }
+  function renderIcdPreview(){
+    if(!icdPreviewColumns.length){ icdPreviewBox.innerHTML="<em>No columns captured yet.</em>"; return; }
+    makePreview(icdPreviewColumns, icdPreviewBox, colName=>{
+      const obj=icdPreviewColumns.find(c=>c.colName===colName); if(!obj) return;
+      icdColNameInput.value=obj.colName;
+      icdSelectedConcepts=new Set(obj.conceptNames); icdDropdownOrder=[...obj.dropdownOrder];
+      filteredIcdData=icdData.filter(r=>obj.icd10cptIds.includes(r.procedure_id));
+      icdSelectedRows.clear(); filteredIcdData.forEach(r=>icdSelectedRows.add(r.rowIndex));
+      renderIcdDropdown(icdSearchInput.value.trim().toLowerCase());
+      renderIcdTags(); renderIcdTable();
+    });
+  }
+
+  /* ----------------------------------------------------------------
+    NEW SESSION
+  ---------------------------------------------------------------- */
+  procNewSessionBtn.addEventListener("click", ()=>{
+    fetch("/new_session/",{method:"POST"})
+      .then(r=>r.json())
+      .then(j=>{ if(j.ok) window.location.reload(); else alert("Error clearing session"); })
+      .catch(err=>alert("Error clearing session: "+err));
+  });
+
+  document.addEventListener("tab-activated", e=>{
+    if(e.detail==="tab3") loadProcedureDatasets();
+  });
 </script>

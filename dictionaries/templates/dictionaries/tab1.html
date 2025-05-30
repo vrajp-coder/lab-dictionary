@@ -98,6 +98,30 @@
   
   <script>
     //-----------------------------------------------------------
+    // INITIAL PAGE LOAD – fetch dataset from server
+    //-----------------------------------------------------------
+    let medLoaded = false;                         // <-- new flag
+    function loadMedications(){
+      if (medLoaded) return;                       // already fetched
+      medLoaded = true;                            // mark so we never fetch twice
+
+      const loader = document.getElementById("med-loader");
+      loader.style.display = "block";
+
+      fetch("/get_medication_data/")
+        .then(r=>r.json())
+        .then(j=>{
+          loader.style.display="none";
+          allData       = j.rows || [];
+          filteredData  = allData.slice();
+          if(!allData.length){ alert("Medication dataset missing."); return; }
+          showDataUI(true);
+          renderDropdown(); renderTags(); renderPharmaPanel(); renderTable();
+        })
+        .catch(err=>{ loader.textContent="Load error"; console.error(err); });
+    }
+
+    //-----------------------------------------------------------
     // GLOBALS / STATE
     //-----------------------------------------------------------
     let allData = [];         // entire dataset from server
@@ -152,35 +176,6 @@
       updateTableBtn.style.display = show ? "inline-block" : "none";
       clearTableBtn.style.display  = show ? "inline-block" : "none";
     }
-
-    //-----------------------------------------------------------
-    // INITIAL PAGE LOAD – fetch dataset from server
-    //-----------------------------------------------------------
-    window.addEventListener("DOMContentLoaded", () => {
-      const loader = document.getElementById("med-loader");
-      loader.style.display = "block";
-
-      fetch("/get_medication_data/")
-        .then(res => res.json())
-        .then(json => {
-          loader.style.display = "none";
-          allData = json.rows || [];
-          if (!allData.length){
-            alert("Medication dataset not found on server.");
-            return;
-          }
-          filteredData = allData.slice();
-          showDataUI(true);              // reveal dropdown, table, etc.
-          renderDropdown();
-          renderTags();
-          renderPharmaPanel();
-          renderTable();
-        })
-        .catch(err => {
-          loader.textContent = "Error loading data.";
-          console.error(err);
-        });
-    });
 
     //-----------------------------------------------------------
     // CLEAR ALL SELECTIONS in the DROPDOWN (only)
@@ -655,6 +650,10 @@
         }
       })
       .catch(err => alert("Error clearing session: " + err));
+    });
+
+    document.addEventListener("tab-activated", e=>{
+      if (e.detail === "tab1") loadMedications();
     });
   </script>
   
