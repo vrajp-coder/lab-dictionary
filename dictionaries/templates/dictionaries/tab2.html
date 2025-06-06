@@ -24,30 +24,6 @@
            placeholder="Search concept_name...">
   </div>
 
-  <!-- ************  DROPDOWNS + TAGS  (flex wrapper)  ************ -->
-  <div id="dropdownFlex" class="flex-row" style="gap:20px; display:none;">
-    <!-- lab side -->
-    <div style="flex:1;">
-      <div id="lab-dropdown-section" style="display:none; margin-bottom:10px;">
-        <div class="dropdown-panel" id="lab-dropdown-panel"></div>
-        <div class="selected-tags" id="lab-tag-container" style="display:none; margin-top:5px;"></div>
-      </div>
-    </div>
-
-    <!-- flowsheet side -->
-    <div style="flex:1;">
-      <div id="flowsheet-dropdown-section" style="display:none; margin-bottom:10px;">
-        <div class="dropdown-panel" id="flowsheet-dropdown-panel"></div>
-        <div class="selected-tags" id="flowsheet-tag-container" style="display:none; margin-top:5px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- update table -->
-  <div style="margin-bottom:15px;">
-    <button class="btn btn-success btn-mini" id="labsUpdateTableBtn" style="display:none;">Update Table</button>
-  </div>
-
   <!-- ************  TABLES  (flex wrapper)  ************ -->
   <div id="tableFlex" class="flex-row" style="gap:20px; display:none;">
     <!-- Lab table -->
@@ -172,8 +148,6 @@
       filteredLabData  = labData.slice();
       filteredFlowData = flowsheetData.slice();
       labLoader.style.display = flowLoader.style.display = "none";
-      labDropdownSection.style.display       = "block";
-      flowsheetDropdownSection.style.display = "block";
       flowCustomSection.style.display        = "block";
       labTableSection.style.display          = "block";
       flowsheetTableSection.style.display    = "block";
@@ -183,11 +157,8 @@
       flowsheetCaptureSection.style.display  = "block";
       labPreviewSection.style.display        = "block";
       flowsheetPreviewSection.style.display  = "block";
-      labsUpdateTableBtn.style.display       = "inline-block";
 
       showWrappers();
-      renderLabDropdown("");
-      renderFlowDropdown("");
       renderLabTable();
       renderFlowsheetTable();
     })
@@ -201,14 +172,6 @@
   let flowsheetData = [];              // entire flowsheet dataset
   let filteredLabData = [];            // lab rows after "Update Table"
   let filteredFlowData = [];           // flowsheet rows after "Update Table"
-
-  // For lab dropdown
-  let labSelectedConcepts = new Set(); // user picks from lab (by concept_name / concept_code)
-  let labDropdownOrder = [];           // order for tag display
-
-  // For flowsheet dropdown
-  let flowSelectedConcepts = new Set();
-  let flowDropdownOrder = [];
 
   // For custom flowsheet
   var flowCustomColumns = [];          // { colName, ids[] }
@@ -227,23 +190,10 @@
   const flowLoader = document.getElementById("flow-loader");
 
   const labsSearchInput    = document.getElementById("labs-search-input");
-  const labsUpdateTableBtn = document.getElementById("labsUpdateTableBtn");
 
-  const dropdownFlex = document.getElementById("dropdownFlex");
   const tableFlex    = document.getElementById("tableFlex");
   const captureFlex  = document.getElementById("captureFlex");
   const previewFlex  = document.getElementById("previewFlex");
-
-
-  // Lab dropdown & tags
-  const labDropdownSection = document.getElementById("lab-dropdown-section");
-  const labDropdownPanel   = document.getElementById("lab-dropdown-panel");
-  const labTagContainer    = document.getElementById("lab-tag-container");
-
-  // Flowsheet dropdown & tags
-  const flowsheetDropdownSection = document.getElementById("flowsheet-dropdown-section");
-  const flowsheetDropdownPanel   = document.getElementById("flowsheet-dropdown-panel");
-  const flowsheetTagContainer    = document.getElementById("flowsheet-tag-container");
 
   // Lab table
   const labTableSection   = document.getElementById("lab-table-section");
@@ -287,7 +237,6 @@
 
   /* ------------ helpers ------------ */
   function showWrappers() {
-    dropdownFlex.style.display = "flex";
     tableFlex.style.display    = "flex";
     captureFlex.style.display  = "flex";
     previewFlex.style.display  = "flex";
@@ -310,124 +259,18 @@
   // SEARCH => filters concept_name or concept_code in both
   //-------------------------------------------------------
   labsSearchInput.addEventListener(
-    "input", debounce(() => { const q = labsSearchInput.value.toLowerCase();
-      renderLabDropdown(q);
-      renderFlowDropdown(q);
+    "input",
+    debounce(() => {
+      const q = labsSearchInput.value.trim().toLowerCase();
+
+      /* filter – but keep any rows already ticked */
+      filteredLabData  = !q ? labData : labData .filter(r => r.concept_name.toLowerCase().includes(q));
+      filteredFlowData = !q ? flowsheetData : flowsheetData.filter(r => r.concept_name.toLowerCase().includes(q));
+
       renderLabTable();
       renderFlowsheetTable();
     }, 250)
   );
-
-  function renderLabDropdown(searchVal){
-  if(!labData.length) return;
-  labDropdownPanel.innerHTML="";
-  let set=new Set();
-  labData.forEach(r=>{
-    if(!searchVal ||
-        r.concept_name.toLowerCase().includes(searchVal)){
-      set.add(r.concept_name);
-    }
-  });
-  const arr=[...set].sort();
-  labDropdownPanel.style.display = arr.length?"block":"none";  // <<< toggle
-  arr.forEach(name=>{
-    const di=document.createElement("div");
-    di.classList.add("dropdown-item"); di.textContent=name;
-    if(labSelectedConcepts.has(name)){di.style.background="#4caf50";di.style.color="#000";}
-    di.addEventListener("click",e=>{
-      const multi=e.ctrlKey||e.metaKey;
-      if(!multi){ if(!labSelectedConcepts.has(name)){labSelectedConcepts.add(name);labDropdownOrder.push(name);} }
-      else{
-        if(labSelectedConcepts.has(name)){labSelectedConcepts.delete(name);labDropdownOrder=labDropdownOrder.filter(n=>n!==name);}
-        else{labSelectedConcepts.add(name);labDropdownOrder.push(name);}
-      }
-      renderLabDropdown(searchVal); renderLabTags();
-    });
-    labDropdownPanel.appendChild(di);
-  });
-}
-  function renderLabTags(){
-    if(labSelectedConcepts.size===0){
-      labTagContainer.style.display="none";
-      labTagContainer.innerHTML="";
-      return;
-    }
-    labTagContainer.style.display="flex";
-    labTagContainer.innerHTML="";
-    labDropdownOrder.forEach(name=>{
-      if(!labSelectedConcepts.has(name)) return;
-      const tag = makeTag(name, () =>{
-        labSelectedConcepts.delete(name);
-        labDropdownOrder = labDropdownOrder.filter(n=>n!==name);
-        renderLabDropdown(labsSearchInput.value.toLowerCase());
-        renderLabTags();
-      });
-      labTagContainer.appendChild(tag);
-    });
-  }
-
-  function renderFlowDropdown(searchVal){
-  if(!flowsheetData.length) return;
-  flowsheetDropdownPanel.innerHTML="";
-  let set=new Set();
-  flowsheetData.forEach(r=>{
-    if(!searchVal ||
-        r.concept_name.toLowerCase().includes(searchVal)){
-      set.add(r.concept_name);
-    }
-  });
-  const arr=[...set].sort();
-  flowsheetDropdownPanel.style.display = arr.length?"block":"none"; // <<< toggle
-  arr.forEach(name=>{
-    const di=document.createElement("div");
-    di.classList.add("dropdown-item"); di.textContent=name;
-    if(flowSelectedConcepts.has(name)){di.style.background="#4caf50";di.style.color="#000";}
-    di.addEventListener("click",e=>{
-      const multi=e.ctrlKey||e.metaKey;
-      if(!multi){ if(!flowSelectedConcepts.has(name)){flowSelectedConcepts.add(name);flowDropdownOrder.push(name);} }
-      else{
-        if(flowSelectedConcepts.has(name)){flowSelectedConcepts.delete(name);flowDropdownOrder=flowDropdownOrder.filter(n=>n!==name);}
-        else{flowSelectedConcepts.add(name);flowDropdownOrder.push(name);}
-      }
-      renderFlowDropdown(searchVal); renderFlowTags();
-    });
-    flowsheetDropdownPanel.appendChild(di);
-  });
-}
-  function renderFlowTags(){
-    if(flowSelectedConcepts.size===0){
-      flowsheetTagContainer.style.display="none";
-      flowsheetTagContainer.innerHTML="";
-      return;
-    }
-    flowsheetTagContainer.style.display="flex";
-    flowsheetTagContainer.innerHTML="";
-    flowDropdownOrder.forEach(name=>{
-      if(!flowSelectedConcepts.has(name)) return;
-      const tag = makeTag(name, () =>{
-        flowSelectedConcepts.delete(name);
-        flowDropdownOrder = flowDropdownOrder.filter(n=>n!==name);
-        renderFlowDropdown(labsSearchInput.value.toLowerCase());
-        renderFlowTags();
-      });
-      flowsheetTagContainer.appendChild(tag);
-    });
-  }
-
-  //-------------------------------------------------------
-  // UPDATE TABLE => filters both lab + flowsheet
-  //-------------------------------------------------------
-  labsUpdateTableBtn.addEventListener("click", () => {
-    if (labData.length && labSelectedConcepts.size) {
-      filteredLabData = labData.filter(r => labSelectedConcepts.has(r.concept_name));
-      // keep any existing row selections
-      renderLabTable();
-    }
-    if (flowsheetData.length && flowSelectedConcepts.size) {
-      filteredFlowData = flowsheetData.filter(r => flowSelectedConcepts.has(r.concept_name));
-      renderFlowsheetTable();
-    }
-  });
 
   //-------------------------------------------------------
   // RENDER LAB TABLE
@@ -559,31 +402,25 @@
   //-------------------------------------------------------
   labNextColumnBtn.addEventListener("click", ()=> {
     // reset Lab side
-    labSelectedConcepts.clear();  labDropdownOrder = [];
+    labSelectedConcepts.clear();
     labSelectedRows.clear();      filteredLabData = labData.slice();
     labColNameInput.value = "";
 
     // common reset
     labsSearchInput.value = "";
-    renderLabDropdown("");   renderLabTags();   renderLabTable();
-
-    // ALSO reset Flowsheet dropdown panel
-    renderFlowDropdown("");  renderFlowTags();
+    renderLabTable();
   });
 
 
   flowsheetNextColumnBtn.addEventListener("click", ()=> {
     // reset Flowsheet side
-    flowSelectedConcepts.clear();  flowDropdownOrder = [];
+    flowSelectedConcepts.clear();
     flowSelectedRows.clear();      filteredFlowData = flowsheetData.slice();
     flowColNameInput.value = "";
 
     // common reset
     labsSearchInput.value = "";
-    renderFlowDropdown("");   renderFlowTags();   renderFlowsheetTable();
-
-    // ALSO reset Lab dropdown panel
-    renderLabDropdown("");    renderLabTags();
+    renderFlowsheetTable();
   });
 
 
@@ -607,7 +444,6 @@
       colName,
       conceptNames,
       labIds,
-      dropdownOrder : [...labDropdownOrder]   // keep order for tags
     };
     const ix = labPreviewColumns.findIndex(c => c.colName === colName);
     if (ix >= 0) labPreviewColumns[ix] = obj; else labPreviewColumns.push(obj);
@@ -631,7 +467,6 @@
       colName,
       conceptNames,
       flowsheetIds : flowIds,
-      dropdownOrder: [...flowDropdownOrder]
     };
     const ix = flowsheetPreviewColumns.findIndex(c => c.colName === colName);
     if (ix >= 0) flowsheetPreviewColumns[ix] = obj; else flowsheetPreviewColumns.push(obj);
@@ -711,14 +546,11 @@
       labColNameInput.value = obj.colName;
 
       labSelectedConcepts = new Set(obj.conceptNames);
-      labDropdownOrder    = [...obj.dropdownOrder];
 
       filteredLabData = labData.filter(r => obj.labIds.includes(r.lab_id));
       labSelectedRows.clear();
       filteredLabData.forEach(r => labSelectedRows.add(r.rowIndex));
 
-      renderLabDropdown(labsSearchInput.value.trim().toLowerCase());
-      renderLabTags();
       renderLabTable();
     });
   }
@@ -782,7 +614,6 @@
 
         flowColNameInput.value = obj.colName;
         flowSelectedConcepts = new Set(obj.conceptNames);
-        flowDropdownOrder    = [...obj.dropdownOrder];
 
         filteredFlowData = flowsheetData.filter(
           r=>obj.flowsheetIds.includes(r.flowsheet_id)
@@ -790,8 +621,6 @@
         flowSelectedRows.clear();
         filteredFlowData.forEach(r=>flowSelectedRows.add(r.rowIndex));
 
-        renderFlowDropdown(labsSearchInput.value.trim().toLowerCase());
-        renderFlowTags();
         renderFlowsheetTable();
       });
     });
