@@ -499,9 +499,19 @@ def submit_data_view(request):
         age_max = settings_blob.get("age_max") or "N/A"
         summary_lines.append(f"Age range      : {age_min} – {age_max}")
 
-        depts_list = settings_blob.get("department_labels", [])
-        depts = "\n    - " + "\n    - ".join(depts_list) if depts_list else " None"
-        summary_lines.append(f"Departments    :{depts}")
+        all_depts   = _load_department_choices()          # full list from disk
+        depts_ids   = settings_blob.get("department_ids", [])
+        depts_labels= settings_blob.get("department_labels", [])
+
+        if len(depts_ids) == len(all_depts):
+            depts_summary = " ALL"
+        elif len(depts_labels) > 15:
+            first15 = "\n    - " + "\n    - ".join(depts_labels[:15]) + "\n    - …"
+            depts_summary = first15
+        else:
+            depts_summary = "\n    - " + "\n    - ".join(depts_labels) if depts_labels else " None"
+
+        summary_lines.append(f"Departments    :{depts_summary}")
 
         encs_list = settings_blob.get("encounter_labels", [])
         encs = "\n    - " + "\n    - ".join(encs_list) if encs_list else " None"
@@ -557,7 +567,7 @@ def submit_data_view(request):
         f"Our team will reach out with a follow-up as soon as possible.\n\n"
         "Please do not reply - this inbox is not monitored regularly.\n"
         "If you have questions, contact bashar.kadhim@yale.edu.\n\n"
-        "Sincerely,\nThe CTRA Team"
+        "Sincerely,\nThe CTRA Team \n\n"
         + summary_block
     )
     EmailMessage(
@@ -582,8 +592,8 @@ def submit_data_view(request):
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[
             "vraj.pandya@yale.edu",
-            # "bashar.kadhim@yale.edu",
-            # "bashar.kadhim@ynhh.org"
+            "bashar.kadhim@yale.edu",
+            "bashar.kadhim@ynhh.org"
             ]
     )
     for content, fname in attachments:

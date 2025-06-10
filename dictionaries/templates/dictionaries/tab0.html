@@ -21,6 +21,9 @@
   <!-- ========== Encounter table ========== -->
   <div style="margin-top:25px;">
     <label><strong>Select encounter type:</strong></label>
+    <div style="font-size:0.9rem; margin-top:4px;">
+      <a href="#" id="enc-select-all">Select&nbsp;All</a>
+    </div>
     <div class="table-container" style="display:block;">
       <table class="csv-table" id="enc-table">
         <thead><tr><th class="select-col"></th><th>Encounter&nbsp;type</th></tr></thead>
@@ -119,6 +122,14 @@ document.getElementById("dept-select-all").addEventListener("click", e => {
 document.getElementById("dept-clear").addEventListener("click", ()=>{
   deptSel.clear(); drawTable(deptBody, filterRows(deptRows,
         document.getElementById("dept-search").value.toLowerCase()), deptSel);
+});
+
+const encSelectAll = document.getElementById("enc-select-all");
+encSelectAll.addEventListener("click", e => {
+  e.preventDefault();
+  /* simply tick every row that currently exists */
+  encRows.forEach(r => encSel.add(r.id));
+  drawTable(encBody, encRows, encSel);
 });
 
 document.getElementById("enc-clear").addEventListener("click", ()=>{
